@@ -81,7 +81,7 @@ class SRNet(nn.Module):
 
 		self.ups2 = UpsBlock(h_channel, scale_factor = 2)
 
-		self.ups3 = UpsBlock(h_channel, scale_factor = 2)
+		# self.ups3 = UpsBlock(h_channel, scale_factor = 2)
 
 		self.conv4 = nn.Conv2d(h_channel, 3, kernel_size = 9, stride = 1, padding = 4, bias = False)
 		self.bn4 = nn.BatchNorm2d(3)
