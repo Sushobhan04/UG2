@@ -55,20 +55,31 @@ def train(config):
 			print("time: ", time.time() - start, " Error: ", np.mean(loss_arr))
 
 		if i%config.checkpoint == 0:
-			save_model(model, optimizer, path = config.model_save_path)
+			save_model(model, optimizer, path = config.model_path)
 			print("saved checkpoint at epoch: ", i)
 
 
-	save_model(model, optimizer, path = config.model_save_path, filename = config.model_name)
+	save_model(model, optimizer, path = config.model_path, filename = config.model_name)
 	print("Model saved as: ", config.model_name)
 
-def test(model, img, hist_eq = True):
+def test_single(img, config):
+
+	model = SRNet()
+
+	if config.data_parallel:
+		model = nn.DataParallel(model)
+
+	if config.cuda:
+		model.cuda()
+
+	load_model(model, config.model_path, config.model_name)
+
 	_img = data_utils.convert_to_torch_variable(img)
 
 	out = model(_img)
 	out = out.data.cpu().numpy()
 
-	if hist_eq:
+	if config.hist_eq:
 		out = image_utils.hist_match(out, img)
 
 	return out
