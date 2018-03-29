@@ -48,6 +48,9 @@ def hist_match(source, template):
 def gaussian_blur(inp, sigma = 1.0):
 	return im.filters.gaussian_filter(inp, sigma)
 
+def kernel_blur(inp, kernel):
+	return im.filters.convolve(inp, kernel)
+
 def noisy(image, noise_typ):
 	if noise_typ == "gauss":
 		row,col,ch= image.shape
