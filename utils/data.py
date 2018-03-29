@@ -7,7 +7,7 @@ from torch.autograd import Variable
 import pickle
 
 
-def BatchGenerator(files, batch_size):
+def BatchGenerator(files, batch_size, dtype = "uint8"):
 	for file in files:
 		with h5py.File(file,'r') as curr_data:
 			data = np.array(curr_data['data']).astype(np.float32)
@@ -15,8 +15,9 @@ def BatchGenerator(files, batch_size):
 
 		# print np.max(data), np.max(label)
 
-		# data = data/255.0
-		# label = label/255.0
+		if dtype == "uint8":
+			data = data/255.0
+			label = label/255.0
 
 		# mean = np.array([0.485, 0.456, 0.406])
 		# std = np.array([0.229, 0.224, 0.225])
