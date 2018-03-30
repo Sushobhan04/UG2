@@ -18,6 +18,17 @@ def load_model(model, path, name):
 	loaded_model = torch.load(os.path.join(path, name))["model"]
 	model.load_state_dict(loaded_model)
 
+def exit_training(error, error_history, window = 5, epsilon = 0.01):
+	if len(error_history)==0:
+		min_error = np.inf
+	else:
+		min_error = np.min(error_history[-window:])
+		
+	if (error - min_error)> epsilon:
+		return True
+	else:
+		return False
+
 
 def train(config):
 	model = SRNet()
@@ -36,6 +47,7 @@ def train(config):
 
 	optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr = config.lr)
 	loss_fn = nn.MSELoss().cuda()
+	loss_history = []
 
 	for i in range(config.epochs):
 		loss_arr = []
@@ -54,12 +66,16 @@ def train(config):
 			loss.backward()
 			optimizer.step()
 
+		mean_epoch_loss = np.mean(loss_arr)
 		if i%config.print_step == 0:
-			print("time: ", time.time() - start, " Error: ", np.mean(loss_arr))
+			print("time: ", time.time() - start, " Error: ", mean_epoch_loss)
 
 		if i%config.checkpoint == 0:
 			save_model(model, optimizer, path = config.model_path)
 			print("saved checkpoint at epoch: ", i)
+
+		if exit_training(mean_epoch_loss, loss_history, window = config.exit_loss_window, epsilon = config.loss_epsilon):
+			break
 
 
 	save_model(model, optimizer, path = config.model_path, filename = config.model_name)
