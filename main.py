@@ -31,6 +31,9 @@ def train(config):
 		model.cuda()
 		feature_extractor.cuda()
 
+	if config.resume_training_flag:
+		load_model(model, config.resume_model_path, config.resume_model_name)
+
 	optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr = config.lr)
 	loss_fn = nn.MSELoss().cuda()
 
