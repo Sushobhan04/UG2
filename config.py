@@ -6,19 +6,17 @@ class Config(object):
 	def __init__(self):
 		super(Config, self).__init__()
 
-		self.mode = "training" ## training/testing
+		self.epochs = 1 ## training/testing
+		self.cuda = True
+		self.data_parallel = True
+		self.lr = 0.001
+		self.train_files = None
+		self.batch_size = 1
+		self.print_step = 1
+		self.checkpoint = 1
+		self.resume_training_flag = False
+		self.resume_training_path = "/"
+		self.resume_model_name = None
 
-		self.num_input_neurons = None
-		self.num_output_neurons = None
-		self.num_reservoir_neurons = None
-		self.max_synapses = None
-		self.threshold = None
-
-		self.iter_per_unit = 1
-		self.decay_rate = 1.0
-		self.mean_intensity = 1.0
-		self.update_batch_size = 1
-		self.window_size = 2
-
-		self.stdp_params = [1.0, 1.0]
-		self.weight_update_rate = 0.01
+		self.model_path = "/"
+		self.model_name = None
