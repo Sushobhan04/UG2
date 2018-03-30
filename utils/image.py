@@ -2,6 +2,7 @@ import scipy.ndimage as im
 import numpy as np
 import os
 import h5py
+from pyblur import *
 
 def hist_match(source, template):
 	"""
@@ -48,8 +49,8 @@ def hist_match(source, template):
 def gaussian_blur(inp, sigma = 1.0):
 	return im.filters.gaussian_filter(inp, sigma)
 
-def kernel_blur(inp, kernel):
-	return im.filters.convolve(inp, kernel)
+def motion_blurred(inp):
+	return LinearMotionBlur(inp)
 
 def noisy(image, noise_typ):
 	if noise_typ == "gauss":
