@@ -5,7 +5,52 @@ import h5py
 import torch
 from torch.autograd import Variable
 import pickle
+from torch.utils.data import Dataset, DataLoader
+import pickle
 
+
+class ImagenetDataset(Dataset):
+	"""docstring for ImagenetDataset"""
+	def __init__(self, path, data_file, img_size, transform = None):
+		super(ImagenetDataset, self).__init__()
+		self.transform = transform
+		self.data, self.label = self.load_data(path, data_file)
+		self.img_size = img_size
+
+	def __len__(self):
+		return len(self.data)
+
+	def __getitem__(self, idx):
+		return {"data": self.data[idx], "label": self.label[idx]}
+
+	def load_data(self, path, data_file):
+		data_file = os.path.join(data_folder, file)
+
+		d = unpickle(data_file)
+		x = d['data']
+		y = d['labels']
+	#     mean_image = d['mean']
+
+		x = x/np.float32(255)
+	#     mean_image = mean_image/np.float32(255)
+
+		# Labels are indexed from 1, shift it so that indexes start at 0
+		y = [i-1 for i in y]
+		data_size = x.shape[0]
+
+	#     x -= mean_image
+
+		img_size2 = self.img_size * self.img_size
+
+		x = np.dstack((x[:, :img_size2], x[:, img_size2:2*img_size2], x[:, 2*img_size2:]))
+		x = x.reshape((x.shape[0], img_size, img_size, 3)).transpose(0, 3, 1, 2)
+		
+		return x,y
+
+def unpickle(file):
+	with open(file, 'rb') as fo:
+	  dict = pickle.load(fo)
+	return dict
 
 def BatchGenerator(files, batch_size, dtype = "uint8"):
 	for file in files:
