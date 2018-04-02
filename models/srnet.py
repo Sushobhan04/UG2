@@ -18,13 +18,34 @@ def feat_ext():
 	# print model(label_bat)[0,0,0,0]
 	return model
 
-def classifier():
+def vgg16_classifier():
 	vgg16 = models.vgg16(pretrained=True).cuda()
 	for param in vgg16.parameters():
 		# print param.shape
 		param.requires_grad = False
 
 	return vgg16
+
+class Classifier(nn.Module):
+	def __init__(self, size, classifier, mapping_list = None):
+		super(Classifier, self).__init__()
+
+		self.ups = nn.Upsample(size = size, mode = 'bilinear')
+		self.classifier = classifier
+
+	def forward(self, x):
+		out = self.ups(x)
+		out = self.classifier(out)
+
+		if mapping_list is not None:
+			mapped_output = []
+
+			for i in range(len(mapping_list)):
+				mapped_output.append(torch.max(torch.index_select(out, 0, mapping_list[i])))
+
+			out = torch.stack(mapped_output)
+
+		return out
 
 class ResBlock(nn.Module):
 	def __init__(self,in_channels, out_channels, stride):
@@ -64,7 +85,22 @@ class UpsBlock(nn.Module):
 		out = self.bn(out)
 		out = self.relu(out)
 
-		return out 
+		return out
+
+class ConvBlock(nn.Module):
+	def __init__(self, h_channel):
+		super(ConvBlock, self).__init__()
+
+		self.conv = nn.Conv2d(h_channel, h_channel, kernel_size = 3, stride = 1, padding = 1, bias = False)
+		self.bn = nn.BatchNorm2d(h_channel)
+		self.relu = nn.ReLU(inplace = True)
+
+	def forward(self, x):
+		out = self.conv(out)
+		out = self.bn(out)
+		out = self.relu(out)
+
+		return out
 
 
 class SRNet(nn.Module):
@@ -80,8 +116,10 @@ class SRNet(nn.Module):
 		self.res_block4 = ResBlock(h_channel,h_channel,1)
 
 		self.ups2 = UpsBlock(h_channel, scale_factor = 2)
+		# self.ups2 = ConvBlock(h_channel)
 
 		# self.ups3 = UpsBlock(h_channel, scale_factor = 2)
+		self.ups3 = ConvBlock(h_channel)
 
 		self.conv4 = nn.Conv2d(h_channel, 3, kernel_size = 9, stride = 1, padding = 4, bias = False)
 		self.bn4 = nn.BatchNorm2d(3)
@@ -97,7 +135,7 @@ class SRNet(nn.Module):
 		out = self.res_block4(out)
 
 		out = self.ups2(out)
-		# out = self.ups3(out)
+		out = self.ups3(out)
 
 		out = self.conv4(out)
 		out = self.bn4(out)
