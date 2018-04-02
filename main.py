@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import random
 from UG2.utils import data as data_utils
 from UG2.utils import image as image_utils
-from UG2.models.srnet import SRNet, feat_ext
+from UG2.models.srnet import SRNet, feat_ext, Classifier, vgg16_classifier
 
 def save_model(model, optimizer, path = "/", filename = 'check_point.pth'):
 	torch.save({'model':model.state_dict(), 'optimizer':optimizer.state_dict()}, os.path.join(path, filename))
@@ -34,15 +34,20 @@ def exit_training(error, error_history, window = 5, epsilon = 0.01):
 def train(config):
         
 	model = SRNet()
-	feature_extractor = feat_ext()
+	stop_training_flag = False
+
+	if config.discriminator == "feat_ext":
+		discriminator = feat_ext()
+	elif config.discriminator == "classifier":
+		discriminator = Classifier((224, 224), vgg16_classifier(), mapping_list = config.mapping_list)
 
 	if config.data_parallel:
 		model = nn.DataParallel(model)
-		feature_extractor = nn.DataParallel(feature_extractor)
+		discriminator = nn.DataParallel(discriminator)
 
 	if config.cuda:
 		model.cuda()
-		feature_extractor.cuda()
+		discriminator.cuda()
 
 	if config.resume_training_flag:
 		load_model(model, config.resume_model_path, config.resume_model_name)
@@ -52,21 +57,37 @@ def train(config):
 	loss_history = []
 
 	for i in range(config.epochs):
+
 		loss_arr = []
 
-		batch_generator = data_utils.BatchGenerator(config.train_files, config.batch_size)
+		if stop_training_flag:
+			break
 
-		start = time.time()
-		for x, y in batch_generator:
-			optimizer.zero_grad()
+		try:
+			dataset = data_utils.ImagenetDataset(config.data_path, config.data_files[0], config.img_size, data_format = config.data_format)
+			data_loader = DataLoader(dataset, batch_size = config.batch_size, shuffle = False, num_workers = config.num_workers)
+			start = time.time()
 
-			y_pred = model(x)
+			for batch in data_loader:
 
-			loss = loss_fn(feature_extractor(y_pred), feature_extractor(y))
-			loss_arr.append(loss.data[0])
+				x = data_utils.convert_to_torch_variable(batch["data"], from_numpy = False)
+				y = data_utils.convert_to_torch_variable(batch["label"], from_numpy = False)
+				optimizer.zero_grad()
 
-			loss.backward()
-			optimizer.step()
+				y_pred = model(x)
+
+				if config.discriminator == "feat_ext":
+					loss = loss_fn(discriminator(y_pred), discriminator(y))
+				elif config.discriminator == "classifier":
+					loss = loss_fn(discriminator(y_pred), y)
+
+				loss_arr.append(loss.data[0])
+
+				loss.backward()
+				optimizer.step()
+
+		except KeyboardInterrupt:
+			stop_training_flag = True
 
 		mean_epoch_loss = np.mean(loss_arr)
 		if i%config.print_step == 0:

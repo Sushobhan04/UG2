@@ -11,12 +11,15 @@ from UG2.utils import data as data_utils
 
 
 class ImagenetDataset(Dataset):
-	"""docstring for ImagenetDataset"""
-	def __init__(self, path, data_file, img_size, transform = None):
+	def __init__(self, path, data_file, img_size, data_format = "h5", transform = None):
 		super(ImagenetDataset, self).__init__()
 		self.transform = transform
-		self.data, self.label = self.load_data(path, data_file)
 		self.img_size = img_size
+
+		if data_format == "h5":
+			self.data, self.label = self.load_h5_data(path, data_file)
+		elif data_format == "imagenet":
+			self.data, self.label = self.load_imagenet_data(path, data_file)
 
 	def __len__(self):
 		return len(self.data)
@@ -24,8 +27,8 @@ class ImagenetDataset(Dataset):
 	def __getitem__(self, idx):
 		return {"data": self.data[idx], "label": self.label[idx]}
 
-	def load_data(self, path, data_file):
-		data_file = os.path.join(data_folder, file)
+	def load_imagenet_data(self, path, data_file):
+		data_file = os.path.join(path, data_file)
 
 		d = unpickle(data_file)
 		x = d['data']
@@ -36,7 +39,11 @@ class ImagenetDataset(Dataset):
 	#     mean_image = mean_image/np.float32(255)
 
 		# Labels are indexed from 1, shift it so that indexes start at 0
-		y = [i-1 for i in y]
+
+		y_one_hot = np.zeros((len(y), 1000), dtype = np.float32)
+
+		for i in range(len(y)):
+			y_one_hot[i, y[i]-1] = 1.0
 		data_size = x.shape[0]
 
 	#     x -= mean_image
@@ -44,9 +51,23 @@ class ImagenetDataset(Dataset):
 		img_size2 = self.img_size * self.img_size
 
 		x = np.dstack((x[:, :img_size2], x[:, img_size2:2*img_size2], x[:, 2*img_size2:]))
-		x = x.reshape((x.shape[0], img_size, img_size, 3)).transpose(0, 3, 1, 2)
+		x = x.reshape((x.shape[0], self.img_size, self.img_size, 3)).transpose(0, 3, 1, 2)
 		
-		return x,y
+		return x,y_one_hot
+
+	def load_h5_data(self, path, data_file, dtype = "uint8"):
+
+		with h5py.File(os.path.join(path, data_file),'r') as curr_data:
+			data = np.array(curr_data['data']).astype(np.float32)
+			label = np.array(curr_data['label']).astype(np.float32)
+
+		# print np.max(data), np.max(label)
+
+		if dtype == "uint8":
+			data = data/255.0
+			label = label/255.0
+
+		return data, label
 
 def unpickle(file):
 	with open(file, 'rb') as fo:
@@ -80,11 +101,15 @@ def BatchGenerator(files, batch_size, dtype = "uint8"):
 
 			yield (data_bat, label_bat)
 
-def convert_to_torch_variable(tensor, cuda = True):
+def convert_to_torch_variable(tensor, cuda = True, from_numpy = True):
+	if from_numpy:
+		tensor = torch.FloatTensor(tensor)
+
+
 	if cuda:
-		return Variable(torch.FloatTensor(tensor)).cuda()
+		return Variable(tensor).cuda()
 	else:
-		return Variable(torch.FloatTensor(tensor))
+		return Variable(tensor)
 
 def create_h5(data, label, path, file_name):
 
