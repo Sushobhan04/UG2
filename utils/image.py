@@ -2,7 +2,10 @@ import scipy.ndimage as im
 import numpy as np
 import os
 import h5py
-from pyblur import *
+import random
+import cv2
+from pyblur.pyblur import LinearMotionBlur_random
+from UG2.utils import data as data_utils
 
 def hist_match(source, template):
 	"""
@@ -50,7 +53,15 @@ def gaussian_blur(inp, sigma = 1.0):
 	return im.filters.gaussian_filter(inp, sigma)
 
 def motion_blurred(inp):
-	return LinearMotionBlur(inp)
+	return LinearMotionBlur_random(inp)
+
+def motionBlur3D(inp):
+	nDims = inp.shape[0]
+	imgMotionBlurred = np.empty(inp.shape)
+	for dimIndex in range(nDims):
+		img = inp[dimIndex,:]
+		imgMotionBlurred[dimIndex,:] = motion_blurred(img)
+	return imgMotionBlurred
 
 def noisy(image, noise_typ):
 	if noise_typ == "gauss":
@@ -85,10 +96,35 @@ def noisy(image, noise_typ):
 		vals = 2 ** np.ceil(np.log2(vals))
 		noisy = np.random.poisson(image * vals) / float(vals)
 		return noisy
-	  
+	
 	elif noise_typ =="speckle":
 		row,col,ch = image.shape
 		gauss = np.random.randn(row,col,ch)
 		gauss = gauss.reshape(row,col,ch)        
 		noisy = image + image * gauss
 		return noisy
+
+def createBlurredDataset(nTK, factor, dataset_name, data_path, traindedModels_path):
+	filename = [os.path.join(data_path, dataset_name+".h5")]
+	for file in filename:
+		with h5py.File(file,'r') as curr_data:
+			blurredImageIndex = 0
+			data  = np.array(curr_data['data']).astype(np.float32)
+			label = np.array(curr_data['label']).astype(np.float32)
+			numImages    = label.shape[0]
+			dataBlurred  = np.empty([data.shape[0]*nTK,data.shape[1],data.shape[2],data.shape[3]])          
+			labelBlurred = np.empty([label.shape[0]*nTK,label.shape[1],label.shape[2],label.shape[3]])          
+			for imageIndex in range(numImages):
+				img = label[imageIndex,:]
+				for kernelIndex in range(nTK):                 
+					imgGaussian = gaussian_blur(img, sigma = random.uniform(0, 2.5))              
+					imgMotion   = motionBlur3D(imgGaussian)
+					imgMotion   = np.transpose(imgMotion,(1,2,0))                 
+					imgMotionResized = cv2.resize(imgMotion, (int(imgMotion.shape[0]/factor),int(imgMotion.shape[1]/factor)))
+					imgMotionResized = np.transpose(imgMotionResized,(2,0,1))
+					dataBlurred[blurredImageIndex,:]  = imgMotionResized
+					labelBlurred[blurredImageIndex,:] = img
+					blurredImageIndex= blurredImageIndex+1
+	data_utils.create_h5(dataBlurred, labelBlurred, traindedModels_path, dataset_name+"BlurrednTK"+str(nTK)+".h5")
+	print("Created the h5 dataset")       
+	return(dataBlurred,labelBlurred)		

@@ -7,6 +7,7 @@ from torch.autograd import Variable
 import pickle
 from torch.utils.data import Dataset, DataLoader
 import pickle
+from UG2.utils import data as data_utils
 
 
 class ImagenetDataset(Dataset):
@@ -162,4 +163,4 @@ def parse_imagenet(path, file, img_size = 16):
 	x = x.reshape((x.shape[0], img_size, img_size, 3)).transpose(0, 3, 1, 2)
 	
 	return x,y	
-
+           
