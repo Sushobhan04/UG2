@@ -73,33 +73,6 @@ def unpickle(file):
 	  dict = pickle.load(fo)
 	return dict
 
-def BatchGenerator(files, batch_size, dtype = "uint8"):
-	for file in files:
-		with h5py.File(file,'r') as curr_data:
-			data = np.array(curr_data['data']).astype(np.float32)
-			label = np.array(curr_data['label']).astype(np.float32)
-
-		# print np.max(data), np.max(label)
-
-		if dtype == "uint8":
-			data = data/255.0
-			label = label/255.0
-
-		# mean = np.array([0.485, 0.456, 0.406])
-		# std = np.array([0.229, 0.224, 0.225])
-
-		# label = (label-mean[np.newaxis,:,np.newaxis,np.newaxis])/std[np.newaxis,:,np.newaxis,np.newaxis]
-
-		# if border_mode=='valid':
-		# 	label = crop(label,crop_size)
-
-		for i in range((data.shape[0]-1)//batch_size + 1):
-			# print data.shape
-			data_bat = convert_to_torch_variable(data[i*batch_size:(i+1)*batch_size])
-			label_bat = convert_to_torch_variable(label[i*batch_size:(i+1)*batch_size])
-
-			yield (data_bat, label_bat)
-
 def convert_to_torch_variable(tensor, cuda = True, from_numpy = True):
 	if from_numpy:
 		tensor = torch.FloatTensor(tensor)

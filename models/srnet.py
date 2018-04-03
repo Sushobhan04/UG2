@@ -31,17 +31,19 @@ class Classifier(nn.Module):
 		super(Classifier, self).__init__()
 
 		self.ups = nn.Upsample(size = size, mode = 'bilinear')
+		self.softmax = nn.Softmax(dim = 0)
 		self.classifier = classifier
 
 	def forward(self, x):
 		out = self.ups(x)
 		out = self.classifier(out)
+		out = self.softmax(out)
 
 		if mapping_list is not None:
 			mapped_output = []
 
 			for i in range(len(mapping_list)):
-				mapped_output.append(torch.max(torch.index_select(out, 0, mapping_list[i])))
+				mapped_output.append(torch.sum(torch.index_select(out, 0, mapping_list[i])))
 
 			out = torch.stack(mapped_output)
 
@@ -96,7 +98,7 @@ class ConvBlock(nn.Module):
 		self.relu = nn.ReLU(inplace = True)
 
 	def forward(self, x):
-		out = self.conv(out)
+		out = self.conv(x)
 		out = self.bn(out)
 		out = self.relu(out)
 
