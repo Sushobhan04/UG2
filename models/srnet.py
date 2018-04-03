@@ -96,7 +96,7 @@ class ConvBlock(nn.Module):
 		self.relu = nn.ReLU(inplace = True)
 
 	def forward(self, x):
-		out = self.conv(out)
+		out = self.conv(x)
 		out = self.bn(out)
 		out = self.relu(out)
 

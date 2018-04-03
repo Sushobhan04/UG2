@@ -2,10 +2,10 @@ import scipy.ndimage as im
 import numpy as np
 import os
 import h5py
-import random
 import cv2
-from pyblur.pyblur import LinearMotionBlur_random
+from pyblur.pyblur import LinearMotionBlur
 from UG2.utils import data as data_utils
+import copy
 
 def hist_match(source, template):
 	"""
@@ -49,18 +49,16 @@ def hist_match(source, template):
 
 	return interp_t_values[bin_idx].reshape(oldshape)
 
-def gaussian_blur(inp, sigma = 1.0):
-	return im.filters.gaussian_filter(inp, sigma)
+def gaussian_blur(inp, sigma = (0.0, 1.0, 1.0)):
+	temp_img = im.filters.gaussian_filter(inp, sigma)
 
-def motion_blurred(inp):
-	return LinearMotionBlur_random(inp)
+	return temp_img
 
-def motionBlur3D(inp):
-	nDims = inp.shape[0]
+def motionBlur3D(inp, dim, theta, linetype):
 	imgMotionBlurred = np.empty(inp.shape)
-	for dimIndex in range(nDims):
+	for dimIndex in range(inp.shape[0]):
 		img = inp[dimIndex,:]
-		imgMotionBlurred[dimIndex,:] = motion_blurred(img)
+		imgMotionBlurred[dimIndex,:] = LinearMotionBlur(img, dim, theta, linetype)
 	return imgMotionBlurred
 
 def noisy(image, noise_typ):
@@ -104,27 +102,29 @@ def noisy(image, noise_typ):
 		noisy = image + image * gauss
 		return noisy
 
-def createBlurredDataset(nTK, factor, dataset_name, data_path, traindedModels_path):
-	filename = [os.path.join(data_path, dataset_name+".h5")]
-	for file in filename:
-		with h5py.File(file,'r') as curr_data:
-			blurredImageIndex = 0
-			data  = np.array(curr_data['data']).astype(np.float32)
-			label = np.array(curr_data['label']).astype(np.float32)
-			numImages    = label.shape[0]
-			dataBlurred  = np.empty([data.shape[0]*nTK,data.shape[1],data.shape[2],data.shape[3]])          
-			labelBlurred = np.empty([label.shape[0]*nTK,label.shape[1],label.shape[2],label.shape[3]])          
-			for imageIndex in range(numImages):
-				img = label[imageIndex,:]
-				for kernelIndex in range(nTK):                 
-					imgGaussian = gaussian_blur(img, sigma = random.uniform(0, 2.5))              
-					imgMotion   = motionBlur3D(imgGaussian)
-					imgMotion   = np.transpose(imgMotion,(1,2,0))                 
-					imgMotionResized = cv2.resize(imgMotion, (int(imgMotion.shape[0]/factor),int(imgMotion.shape[1]/factor)))
-					imgMotionResized = np.transpose(imgMotionResized,(2,0,1))
-					dataBlurred[blurredImageIndex,:]  = imgMotionResized
-					labelBlurred[blurredImageIndex,:] = img
-					blurredImageIndex= blurredImageIndex+1
-	data_utils.create_h5(dataBlurred, labelBlurred, traindedModels_path, dataset_name+"BlurrednTK"+str(nTK)+".h5")
-	print("Created the h5 dataset")       
-	return(dataBlurred,labelBlurred)		
+def blur_images(images, nTK, scale_factor, flags = [1, 1], gaussian_blur_range = (0, 1), motion_blur_range = (0, 1)):
+	output_data = []
+	output_label = []
+	for image in images:
+		for kernelIndex in range(nTK):
+			temp_image = np.copy(image)
+
+			if flags[0]:
+				sigmaRandom = np.random.uniform(gaussian_blur_range[0], gaussian_blur_range[1]) 
+				temp_image = gaussian_blur(temp_image, sigma = (0, sigmaRandom, sigmaRandom))              
+				# output_images.append(imgGaussian)
+
+			if flags[1]:
+				dim = np.random.choice([3, 5, 7, 9], 1)
+				theta = np.random.uniform(0.0, 360.0)
+				temp_image = motionBlur3D(temp_image, dim[0], theta, "full")
+
+			if scale_factor != 1:
+				temp_image = np.transpose(temp_image,(1,2,0))                
+				temp_image = cv2.resize(temp_image, (0, 0), fx = 1.0/scale_factor, fy = 1.0/scale_factor)
+				temp_image = np.transpose(temp_image,(2,0,1))
+			
+			output_data.append(temp_image)
+			output_label.append(image)
+
+	return np.array(output_data), np.array(output_label)
