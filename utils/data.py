@@ -9,16 +9,16 @@ from torch.utils.data import Dataset, DataLoader
 import pickle
 
 
-class ImagenetDataset(Dataset):
+class DatasetFromFile(Dataset):
 	def __init__(self, path, data_file, img_size, data_format = "h5", transform = None):
-		super(ImagenetDataset, self).__init__()
+		super(DatasetFromFile, self).__init__()
 		self.transform = transform
 		self.img_size = img_size
 
 		if data_format == "h5":
 			self.data, self.label = self.load_h5_data(path, data_file)
-		elif data_format == "imagenet":
-			self.data, self.label = self.load_imagenet_data(path, data_file)
+		elif data_format == "binary":
+			self.data, self.label = self.load_binary_data(path, data_file)
 
 	def __len__(self):
 		return len(self.data)
@@ -26,7 +26,7 @@ class ImagenetDataset(Dataset):
 	def __getitem__(self, idx):
 		return {"data": self.data[idx], "label": self.label[idx]}
 
-	def load_imagenet_data(self, path, data_file):
+	def load_binary_data(self, path, data_file):
 		data_file = os.path.join(path, data_file)
 
 		d = unpickle(data_file)
@@ -68,20 +68,28 @@ class ImagenetDataset(Dataset):
 
 		return data, label
 
+class ImagenetDataset(Dataset):
+	def __init__(self, path, data_file, img_size, data_format = "h5", transform = None):
+		super(ImagenetDataset, self).__init__()
+		self.transform = transform
+		self.img_size = img_size
+
 def unpickle(file):
 	with open(file, 'rb') as fo:
 	  dict = pickle.load(fo)
 	return dict
 
-def convert_to_torch_variable(tensor, cuda = True, from_numpy = True):
+def convert_to_torch_tensor(tensor, cuda = True, from_numpy = True, requires_grad = False):
 	if from_numpy:
 		tensor = torch.FloatTensor(tensor)
 
-
 	if cuda:
-		return Variable(tensor).cuda()
-	else:
-		return Variable(tensor)
+		tensor.cuda()
+
+	if requires_grad:
+		tensor.requires_grad = True
+
+	return tensor
 
 def create_h5(data, label, path, file_name):
 

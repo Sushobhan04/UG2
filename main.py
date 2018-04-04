@@ -1,6 +1,8 @@
 import torch
 from torch.autograd import Variable
 from torch.utils.data import Dataset, DataLoader
+import torchvision.transforms as transforms
+import torchvision.datasets as datasets
 import torchvision.models as models
 import torch.nn as nn
 import numpy as np
@@ -62,7 +64,7 @@ def train(config):
 			break
 
 		try:
-			dataset = data_utils.ImagenetDataset(config.data_path, config.data_files[0], config.img_size, data_format = config.data_format)
+			dataset = data_utils.DatasetFromFile(config.data_path, config.data_files[0], config.img_size, data_format = config.data_format)
 			data_loader = DataLoader(dataset, batch_size = config.batch_size, shuffle = False, num_workers = config.num_workers)
 			start = time.time()
 
@@ -114,7 +116,7 @@ def test_single(img, config):
 
 	load_model(model, config.model_path, config.model_name)
 
-	_img = data_utils.convert_to_torch_variable(img)
+	_img = data_utils.convert_to_torch_tensor(img)
 
 	out = model(_img)
 	out = out.data.cpu().numpy()
@@ -124,6 +126,80 @@ def test_single(img, config):
 
 	return out
 
+def train_imagenet_classifier(config):
+	normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+	stop_training_flag = False
+	
+	model = SRNet()
+	classifier = Classifier((224, 224), vgg16_classifier(), mapping_list = config.mapping_list)
+
+	if config.data_parallel:
+		model = nn.DataParallel(model)
+		classifier = nn.DataParallel(classifier)
+
+	if config.cuda:
+		model.cuda()
+		classifier.cuda()
+
+	if config.resume_training_flag:
+		load_model(model, config.resume_model_path, config.resume_model_name)
+
+	optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr = config.lr)
+	loss_fn = nn.MSELoss().cuda()
+	loss_history = []
+
+	for i in range(config.epochs):
+
+		loss_arr = []
+
+		if stop_training_flag:
+			break
+
+		try:
+
+			train_loader = DataLoader(
+				datasets.ImageFolder(config.train_dir, transforms.Compose([
+					transforms.Scale(256),
+					transforms.ToTensor(),
+					normalize])))
+
+			start = time.time()
+			
+			for batch in data_loader:
+
+				x = data_utils.convert_to_torch_variable(batch["data"], from_numpy = False)
+				y = data_utils.convert_to_torch_variable(batch["label"], from_numpy = False)
+				optimizer.zero_grad()
+
+				y_pred = model(x)
+
+				if config.discriminator == "feat_ext":
+					loss = loss_fn(discriminator(y_pred), discriminator(y))
+				elif config.discriminator == "classifier":
+					loss = loss_fn(discriminator(y_pred), y)
+
+				loss_arr.append(loss.data[0])
+
+				loss.backward()
+				optimizer.step()
+
+		except KeyboardInterrupt:
+			stop_training_flag = True
+
+		mean_epoch_loss = np.mean(loss_arr)
+		if i%config.print_step == 0:
+			print("time: ", time.time() - start, " Error: ", mean_epoch_loss)
+
+		if i%config.checkpoint == 0:
+			save_model(model, optimizer, path = config.model_path)
+			print("saved checkpoint at epoch: ", i)
+
+		if exit_training(mean_epoch_loss, loss_history, window = config.exit_loss_window, epsilon = config.loss_epsilon):
+			break
+
+
+	save_model(model, optimizer, path = config.model_path, filename = config.model_name)
+	print("Model saved as: ", config.model_name)
 
 
 

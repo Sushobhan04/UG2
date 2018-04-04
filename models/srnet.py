@@ -27,12 +27,13 @@ def vgg16_classifier():
 	return vgg16
 
 class Classifier(nn.Module):
-	def __init__(self, size, classifier, mapping_list = None):
+	def __init__(self, classifier, size, mapping_list = None):
 		super(Classifier, self).__init__()
 
 		self.ups = nn.Upsample(size = size, mode = 'bilinear')
-		self.softmax = nn.Softmax(dim = 0)
 		self.classifier = classifier
+		self.softmax = nn.Softmax(dim = 0)
+
 
 	def forward(self, x):
 		out = self.ups(x)
@@ -55,7 +56,7 @@ class ResBlock(nn.Module):
 		self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size = 3, stride = stride, padding = 1, bias = False)
 		self.bn1 = nn.BatchNorm2d(out_channels)
 		self.relu1 = nn.ReLU(inplace = True)
-		self.conv2 = nn.Conv2d(in_channels, out_channels, kernel_size = 3, stride = stride, padding = 1, bias = False)
+		self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size = 3, stride = stride, padding = 1, bias = False)
 		self.bn2 = nn.BatchNorm2d(out_channels)
 
 	def forward(self, x):
