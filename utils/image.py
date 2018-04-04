@@ -3,7 +3,7 @@ import numpy as np
 import os
 import h5py
 import cv2
-from pyblur.pyblur import LinearMotionBlur
+from UG2.lib.pyblur.pyblur import LinearMotionBlur
 from UG2.utils import data as data_utils
 import copy
 
@@ -120,9 +120,8 @@ def blur_images(images, nTK, scale_factor, flags = [1, 1], gaussian_blur_range =
 
 			if scale_factor != 1:
 				temp_image  = cv2.resize(temp_image, (0, 0), fx = 1.0/scale_factor, fy = 1.0/scale_factor)
-				temp_image  = np.transpose(temp_image,(2,0,1))
-
-			output_data.append(temp_image)
+			
+			output_data.append(np.transpose(temp_image,(2,0,1)))
 			output_label.append(np.transpose(image,(2,0,1)))
 
 	return output_data, output_label

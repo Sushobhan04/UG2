@@ -84,7 +84,7 @@ def convert_to_torch_tensor(tensor, cuda = True, from_numpy = True, requires_gra
 		tensor = torch.FloatTensor(tensor)
 
 	if cuda:
-		tensor.cuda()
+		tensor = tensor.cuda()
 
 	tensor = Variable(tensor)
 
@@ -148,22 +148,20 @@ def create_dataset(data_source_path, source_name_files, image_format, destinatio
 	hr_stack = []
 
 	for i in range(1, 1+num_images):
-		hr_img = gen_label[i]
-		lr_img = gen_data[i]
 
-		lr_stack.append(patchify(lr_img, size = patch_size))
-		hr_stack.append(patchify(hr_img, size = patch_size*blur_parameters["scale_factor"]))
+		lr_stack.append(patchify(gen_data[i], size = patch_size))
+		hr_stack.append(patchify(gen_label[i], size = patch_size*blur_parameters["scale_factor"]))
 
 	lr_set = np.concatenate(lr_stack)
 	hr_set = np.concatenate(hr_stack)
 
 	number_training_images = int(testing_fraction*lr_set.shape[0])
 
-	lr_set_training = lr_set[1:number_training_images]
-	hr_set_training = hr_set[1:number_training_images]
+	lr_set_training = lr_set[1:number_training_images].astype(np.uint8)
+	hr_set_training = hr_set[1:number_training_images].astype(np.uint8)
 
-	lr_set_testing  = lr_set[number_training_images+1:]
-	hr_set_testing  = hr_set[number_training_images+1:]
+	lr_set_testing  = lr_set[number_training_images+1:].astype(np.uint8)
+	hr_set_testing  = hr_set[number_training_images+1:].astype(np.uint8)
 
 	create_h5(data = lr_set_training, label = hr_set_training, path = destination_path, file_name = dataset_name+".h5")
 	create_h5(data = lr_set_testing, label = hr_set_testing, path = destination_path, file_name = dataset_name+"_testing.h5")

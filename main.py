@@ -61,13 +61,13 @@ def train(config):
 	elif config.discriminator == "classifier":
 		discriminator = Classifier((224, 224), vgg16_classifier(), mapping_list = config.mapping_list)
 
-	if config.data_parallel:
-		model = nn.DataParallel(model)
-		discriminator = nn.DataParallel(discriminator)
-
 	if config.cuda:
 		model.cuda()
 		discriminator.cuda()
+
+	if config.data_parallel:
+		model = nn.DataParallel(model)
+		discriminator = nn.DataParallel(discriminator)
 
 	if config.resume_training_flag:
 		load_model(model, config.resume_model_path, config.resume_model_name)
@@ -93,6 +93,9 @@ def train(config):
 				x = data_utils.convert_to_torch_tensor(batch["data"], from_numpy = False)
 				y = data_utils.convert_to_torch_tensor(batch["label"], from_numpy = False)
 				optimizer.zero_grad()
+
+				print(next(model.parameters()).is_cuda)
+				print(x.is_cuda)
 
 				y_pred = model(x)
 
