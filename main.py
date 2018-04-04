@@ -9,6 +9,8 @@ import numpy as np
 import time
 import h5py
 import os
+import matplotlib.pyplot as plt
+import random
 from UG2.utils import data as data_utils
 from UG2.utils import image as image_utils
 from UG2.models.srnet import SRNet, feat_ext, Classifier, vgg16_classifier
@@ -30,9 +32,9 @@ def exit_training(error, error_history, window = 5, epsilon = 0.01):
 		return True
 	else:
 		return False
-
-
+    
 def train(config):
+        
 	model = SRNet()
 	stop_training_flag = False
 

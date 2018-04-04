@@ -2,6 +2,10 @@ import scipy.ndimage as im
 import numpy as np
 import os
 import h5py
+import cv2
+from pyblur.pyblur import LinearMotionBlur
+from UG2.utils import data as data_utils
+import copy
 
 def hist_match(source, template):
 	"""
@@ -45,11 +49,17 @@ def hist_match(source, template):
 
 	return interp_t_values[bin_idx].reshape(oldshape)
 
-def gaussian_blur(inp, sigma = 1.0):
-	return im.filters.gaussian_filter(inp, sigma)
+def gaussian_blur(inp, sigma = (1.0, 1.0, 0.0)):
+	temp_img = im.filters.gaussian_filter(inp, sigma)
 
-def kernel_blur(inp, kernel):
-	return im.filters.convolve(inp, kernel)
+	return temp_img
+
+def motionBlur3D(inp, dim, theta, linetype):
+	imgMotionBlurred = np.empty(inp.shape)
+	for dimIndex in range(inp.shape[2]):
+		img = inp[:,:,dimIndex]
+		imgMotionBlurred[:,:,dimIndex] = LinearMotionBlur(img, dim, theta, linetype)
+	return imgMotionBlurred
 
 def noisy(image, noise_typ):
 	if noise_typ == "gauss":
@@ -84,10 +94,35 @@ def noisy(image, noise_typ):
 		vals = 2 ** np.ceil(np.log2(vals))
 		noisy = np.random.poisson(image * vals) / float(vals)
 		return noisy
-	  
+	
 	elif noise_typ =="speckle":
 		row,col,ch = image.shape
 		gauss = np.random.randn(row,col,ch)
 		gauss = gauss.reshape(row,col,ch)        
 		noisy = image + image * gauss
 		return noisy
+
+def blur_images(images, nTK, scale_factor, flags = [1, 1], gaussian_blur_range = (0, 1), motion_blur_range = (0, 1)):
+	output_data = []
+	output_label = []
+	for image in images:
+		for kernelIndex in range(nTK):
+			temp_image = np.copy(image)
+
+			if flags[0]:
+				sigmaRandom = np.random.uniform(gaussian_blur_range[0], gaussian_blur_range[1]) 
+				temp_image  = gaussian_blur(temp_image, sigma = (sigmaRandom, sigmaRandom,0))  
+
+			if flags[1]:
+				dim         = np.random.choice([3, 5, 7, 9], 1)
+				theta       = np.random.uniform(0.0, 360.0)
+				temp_image  = motionBlur3D(temp_image, dim[0], theta, "full")
+
+			if scale_factor != 1:
+				temp_image  = cv2.resize(temp_image, (0, 0), fx = 1.0/scale_factor, fy = 1.0/scale_factor)
+				temp_image  = np.transpose(temp_image,(2,0,1))
+
+			output_data.append(temp_image)
+			output_label.append(np.transpose(image,(2,0,1)))
+
+	return output_data, output_label
