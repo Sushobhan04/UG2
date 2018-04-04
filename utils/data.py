@@ -83,10 +83,10 @@ def convert_to_torch_tensor(tensor, cuda = True, from_numpy = True, requires_gra
 	if from_numpy:
 		tensor = torch.FloatTensor(tensor)
 
-	tensor = Variable(tensor)
-
 	if cuda:
 		tensor.cuda()
+
+	tensor = Variable(tensor)
 
 	if requires_grad:
 		tensor.requires_grad = True
