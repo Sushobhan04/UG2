@@ -49,16 +49,16 @@ def hist_match(source, template):
 
 	return interp_t_values[bin_idx].reshape(oldshape)
 
-def gaussian_blur(inp, sigma = (0.0, 1.0, 1.0)):
+def gaussian_blur(inp, sigma = (1.0, 1.0, 0.0)):
 	temp_img = im.filters.gaussian_filter(inp, sigma)
 
 	return temp_img
 
 def motionBlur3D(inp, dim, theta, linetype):
 	imgMotionBlurred = np.empty(inp.shape)
-	for dimIndex in range(inp.shape[0]):
-		img = inp[dimIndex,:]
-		imgMotionBlurred[dimIndex,:] = LinearMotionBlur(img, dim, theta, linetype)
+	for dimIndex in range(inp.shape[2]):
+		img = inp[:,:,dimIndex]
+		imgMotionBlurred[:,:,dimIndex] = LinearMotionBlur(img, dim, theta, linetype)
 	return imgMotionBlurred
 
 def noisy(image, noise_typ):
@@ -111,20 +111,18 @@ def blur_images(images, nTK, scale_factor, flags = [1, 1], gaussian_blur_range =
 
 			if flags[0]:
 				sigmaRandom = np.random.uniform(gaussian_blur_range[0], gaussian_blur_range[1]) 
-				temp_image = gaussian_blur(temp_image, sigma = (0, sigmaRandom, sigmaRandom))              
-				# output_images.append(imgGaussian)
+				temp_image  = gaussian_blur(temp_image, sigma = (sigmaRandom, sigmaRandom,0))  
 
 			if flags[1]:
-				dim = np.random.choice([3, 5, 7, 9], 1)
-				theta = np.random.uniform(0.0, 360.0)
-				temp_image = motionBlur3D(temp_image, dim[0], theta, "full")
+				dim         = np.random.choice([3, 5, 7, 9], 1)
+				theta       = np.random.uniform(0.0, 360.0)
+				temp_image  = motionBlur3D(temp_image, dim[0], theta, "full")
 
 			if scale_factor != 1:
-				temp_image = np.transpose(temp_image,(1,2,0))                
-				temp_image = cv2.resize(temp_image, (0, 0), fx = 1.0/scale_factor, fy = 1.0/scale_factor)
-				temp_image = np.transpose(temp_image,(2,0,1))
-			
-			output_data.append(temp_image)
-			output_label.append(image)
+				temp_image  = cv2.resize(temp_image, (0, 0), fx = 1.0/scale_factor, fy = 1.0/scale_factor)
+				temp_image  = np.transpose(temp_image,(2,0,1))
 
-	return np.array(output_data), np.array(output_label)
+			output_data.append(temp_image)
+			output_label.append(np.transpose(image,(2,0,1)))
+
+	return output_data, output_label

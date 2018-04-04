@@ -7,8 +7,7 @@ from torch.autograd import Variable
 import pickle
 from torch.utils.data import Dataset, DataLoader
 import pickle
-from UG2.utils import data as data_utils
-
+from UG2.utils import image as image_utils
 
 class ImagenetDataset(Dataset):
 	def __init__(self, path, data_file, img_size, data_format = "h5", transform = None):
@@ -38,7 +37,7 @@ class ImagenetDataset(Dataset):
 		x = x/np.float32(255)
 	#     mean_image = mean_image/np.float32(255)
 
-		# Labels are indexed from 1, shift it so that indexes start at 0
+	# Labels are indexed from 1, shift it so that indexes start at 0
 
 		y_one_hot = np.zeros((len(y), 1000), dtype = np.float32)
 
@@ -127,7 +126,7 @@ def patchify(image, size):
 
 	return patches
 
-def create_dataset(factor, num_images, patch_size, dataset_path, destination_path, dataset_name):
+def create_bsd_dataset(factor, num_images, patch_size, dataset_path, destination_path, dataset_name):
 
 	folder = "image_SRF_" + str(factor)
 	lr_suffix = "_".join(["SRF", str(factor), "LR"])
@@ -152,6 +151,40 @@ def create_dataset(factor, num_images, patch_size, dataset_path, destination_pat
 	create_h5(data = lr_set, label = hr_set, path = destination_path, file_name = dataset_name)
 
 	print("data of shape ", lr_set.shape, "and label of shape ", hr_set.shape, " created of type", lr_set.dtype)
+
+def create_dataset(data_source_path, source_name_files, image_format, destination_path, dataset_name, num_images, patch_size, testing_fraction, blur_parameters):
+
+	hr_image = []
+	for i in range(num_images):
+		image_name          = os.path.join(data_source_path,source_name_files[i]+image_format)
+		hr_image.append(im.imread(image_name))   
+
+	gen_data, gen_label = image_utils.blur_images(hr_image, blur_parameters["nTK"] ,blur_parameters["scale_factor"], blur_parameters["flags"], blur_parameters["gaussian_blur_range"], blur_parameters["motion_blur_range"])
+
+	lr_stack = []
+	hr_stack = []
+
+	for i in range(1, 1+num_images):
+		hr_img = gen_label[i]
+		lr_img = gen_data[i]
+
+		lr_stack.append(patchify(lr_img, size = patch_size))
+		hr_stack.append(patchify(hr_img, size = patch_size*blur_parameters["scale_factor"]))
+
+	lr_set = np.concatenate(lr_stack)
+	hr_set = np.concatenate(hr_stack)
+
+	number_training_images = int(testing_fraction*lr_set.shape[0])
+
+	lr_set_training = lr_set[1:number_training_images]
+	hr_set_training = hr_set[1:number_training_images]
+
+	lr_set_testing  = lr_set[number_training_images+1:]
+	hr_set_testing  = hr_set[number_training_images+1:]
+
+	create_h5(data = lr_set_training, label = hr_set_training, path = destination_path, file_name = dataset_name+".h5")
+	create_h5(data = lr_set_testing, label = hr_set_testing, path = destination_path, file_name = dataset_name+"testing.h5")
+	print("data of shape ", lr_set_training.shape, "and label of shape ", hr_set_training.shape, " created of type", lr_set_training.dtype)
 
 
 def parse_vatic_annotations(path, txt_filename):
