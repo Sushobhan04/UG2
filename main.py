@@ -14,13 +14,31 @@ import random
 from UG2.utils import data as data_utils
 from UG2.utils import image as image_utils
 from UG2.models.srnet import SRNet, feat_ext, Classifier, vgg16_classifier
+from collections import OrderedDict
+import copy
+
 
 def save_model(model, optimizer, path = "/", filename = 'check_point.pth'):
 	torch.save({'model':model.state_dict(), 'optimizer':optimizer.state_dict()}, os.path.join(path, filename))
 
-def load_model(model, path, name):
-	loaded_model = torch.load(os.path.join(path, name))["model"]
-	model.load_state_dict(loaded_model)
+def load_model(model, path, name, mode = "parallel"):
+	state_dict = torch.load(os.path.join(path, name))["model"]
+	new_state_dict = OrderedDict
+
+	for k, v in state_dict.items():
+		name = ""
+		if mode == "single" and k.startswith("module."):
+			name = k[7:]
+
+		elif mode == "parallel" and not k.startswith("module."):
+			name = "module."+k
+
+		else:
+			name = k
+
+		new_state_dict[name] = v
+
+	model.load_state_dict(new_state_dict)
 
 def exit_training(error, error_history, window = 5, epsilon = 0.01):
 	if len(error_history)==0:
@@ -116,7 +134,10 @@ def test_single(img, config):
 	if config.cuda:
 		model.cuda()
 
-	load_model(model, config.model_path, config.model_name)
+	if config.data_parallel:
+		load_model(model, config.model_path, config.model_name, mode = "parallel")
+	else:
+		load_model(model, config.model_path, config.model_name, mode = "single")
 
 	_img = data_utils.convert_to_torch_tensor(img)
 
