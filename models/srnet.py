@@ -27,21 +27,24 @@ def vgg16_classifier():
 	return vgg16
 
 class Classifier(nn.Module):
-	def __init__(self, size, classifier, mapping_list = None):
+	def __init__(self, classifier, size, mapping_list = None):
 		super(Classifier, self).__init__()
 
 		self.ups = nn.Upsample(size = size, mode = 'bilinear')
 		self.classifier = classifier
+		self.softmax = nn.Softmax(dim = 0)
+
 
 	def forward(self, x):
 		out = self.ups(x)
 		out = self.classifier(out)
+		out = self.softmax(out)
 
 		if mapping_list is not None:
 			mapped_output = []
 
 			for i in range(len(mapping_list)):
-				mapped_output.append(torch.max(torch.index_select(out, 0, mapping_list[i])))
+				mapped_output.append(torch.sum(torch.index_select(out, 0, mapping_list[i])))
 
 			out = torch.stack(mapped_output)
 
@@ -53,7 +56,7 @@ class ResBlock(nn.Module):
 		self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size = 3, stride = stride, padding = 1, bias = False)
 		self.bn1 = nn.BatchNorm2d(out_channels)
 		self.relu1 = nn.ReLU(inplace = True)
-		self.conv2 = nn.Conv2d(in_channels, out_channels, kernel_size = 3, stride = stride, padding = 1, bias = False)
+		self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size = 3, stride = stride, padding = 1, bias = False)
 		self.bn2 = nn.BatchNorm2d(out_channels)
 
 	def forward(self, x):
@@ -88,11 +91,11 @@ class UpsBlock(nn.Module):
 		return out
 
 class ConvBlock(nn.Module):
-	def __init__(self, h_channel):
+	def __init__(self, in_channel, out_channel):
 		super(ConvBlock, self).__init__()
 
-		self.conv = nn.Conv2d(h_channel, h_channel, kernel_size = 3, stride = 1, padding = 1, bias = False)
-		self.bn = nn.BatchNorm2d(h_channel)
+		self.conv = nn.Conv2d(in_channel, out_channel, kernel_size = 3, stride = 1, padding = 1, bias = False)
+		self.bn = nn.BatchNorm2d(out_channel)
 		self.relu = nn.ReLU(inplace = True)
 
 	def forward(self, x):
@@ -104,22 +107,19 @@ class ConvBlock(nn.Module):
 
 
 class SRNet(nn.Module):
-	def __init__(self, h_channel = 64):
+	def __init__(self, h_channel = 64, num_resblock = 4):
 		super(SRNet, self).__init__()
+
 		self.conv1 = nn.Conv2d(3, h_channel, kernel_size = 9, stride = 1, padding = 4, bias = False)
 		self.bn1 = nn.BatchNorm2d(h_channel)
 		self.relu1 = nn.ReLU(inplace = True)
 
-		self.res_block1 = ResBlock(h_channel,h_channel,1)
-		self.res_block2 = ResBlock(h_channel,h_channel,1)
-		self.res_block3 = ResBlock(h_channel,h_channel,1)
-		self.res_block4 = ResBlock(h_channel,h_channel,1)
+		self.res_blocks = []
 
-		self.ups2 = UpsBlock(h_channel, scale_factor = 2)
-		# self.ups2 = ConvBlock(h_channel)
+		for i in range(num_resblock):
+			self.res_blocks.append(ResBlock(h_channel,h_channel,1))
 
-		# self.ups3 = UpsBlock(h_channel, scale_factor = 2)
-		self.ups3 = ConvBlock(h_channel)
+		self.conv3 = ConvBlock(h_channel, h_channel)
 
 		self.conv4 = nn.Conv2d(h_channel, 3, kernel_size = 9, stride = 1, padding = 4, bias = False)
 		self.bn4 = nn.BatchNorm2d(3)
@@ -129,13 +129,10 @@ class SRNet(nn.Module):
 		out = self.bn1(out)
 		out = self.relu1(out)
 
-		out = self.res_block1(out)
-		out = self.res_block2(out)
-		out = self.res_block3(out)
-		out = self.res_block4(out)
+		for res_block in self.res_blocks:
+			out = res_block(out)
 
-		out = self.ups2(out)
-		out = self.ups3(out)
+		out = self.conv3(out)
 
 		out = self.conv4(out)
 		out = self.bn4(out)
