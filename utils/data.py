@@ -183,7 +183,7 @@ def create_dataset(data_source_path, source_name_files, image_format, destinatio
 	hr_set_testing  = hr_set[number_training_images+1:]
 
 	create_h5(data = lr_set_training, label = hr_set_training, path = destination_path, file_name = dataset_name+".h5")
-	create_h5(data = lr_set_testing, label = hr_set_testing, path = destination_path, file_name = dataset_name+"testing.h5")
+	create_h5(data = lr_set_testing, label = hr_set_testing, path = destination_path, file_name = dataset_name+"_testing.h5")
 	print("data of shape ", lr_set_training.shape, "and label of shape ", hr_set_training.shape, " created of type", lr_set_training.dtype)
 
 
