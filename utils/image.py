@@ -102,7 +102,7 @@ def noisy(image, noise_typ):
 		noisy = image + image * gauss
 		return noisy
 
-def blur_images(images, nTK, scale_factor, flags = [1, 1], gaussian_blur_range = (0, 1), motion_blur_range = (0, 1)):
+def blur_images(images, nTK, scale_factor, flags = [1, 1], gaussian_blur_range = (0, 1)):
 	output_data = []
 	output_label = []
 	for image in images:
