@@ -3,7 +3,7 @@ import numpy as np
 import os
 import h5py
 import cv2
-from UG2.lib.pyblur.pyblur import LinearMotionBlur
+from UG2.lib.pyblur import LinearMotionBlur
 from UG2.utils import data as data_utils
 import copy
 
