@@ -90,12 +90,9 @@ def train(config):
 
 			for batch in data_loader:
 
-				x = data_utils.convert_to_torch_tensor(batch["data"], from_numpy = False)
-				y = data_utils.convert_to_torch_tensor(batch["label"], from_numpy = False)
+				x = data_utils.convert_to_torch_tensor(batch["data"], from_numpy = False, cuda = config.cuda)
+				y = data_utils.convert_to_torch_tensor(batch["label"], from_numpy = False, cuda = config.cuda)
 				optimizer.zero_grad()
-
-				print(next(model.parameters()).is_cuda)
-				print(x.is_cuda)
 
 				y_pred = model(x)
 

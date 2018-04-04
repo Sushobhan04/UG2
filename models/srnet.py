@@ -116,8 +116,14 @@ class SRNet(nn.Module):
 
 		self.res_blocks = []
 
-		for i in range(num_resblock):
-			self.res_blocks.append(ResBlock(h_channel,h_channel,1))
+		# for i in range(num_resblock):
+		# 	self.res_blocks.append(ResBlock(h_channel,h_channel,1))
+
+		self.res_block1 = ResBlock(h_channel,h_channel,1)
+		self.res_block2 = ResBlock(h_channel,h_channel,1)
+		self.res_block3 = ResBlock(h_channel,h_channel,1)
+		self.res_block4 = ResBlock(h_channel,h_channel,1)
+
 
 		self.conv3 = ConvBlock(h_channel, h_channel)
 
@@ -129,8 +135,13 @@ class SRNet(nn.Module):
 		out = self.bn1(out)
 		out = self.relu1(out)
 
-		for res_block in self.res_blocks:
-			out = res_block(out)
+		# for res_block in self.res_blocks:
+		# 	out = res_block(out)
+
+		out = self.res_block1(out)
+		out = self.res_block2(out)
+		out = self.res_block3(out)
+		out = self.res_block4(out)
 
 		out = self.conv3(out)
 

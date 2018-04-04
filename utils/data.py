@@ -54,17 +54,17 @@ class DatasetFromFile(Dataset):
 		
 		return x,y_one_hot
 
-	def load_h5_data(self, path, data_file, dtype = "uint8"):
+	def load_h5_data(self, path, data_file):
 
 		with h5py.File(os.path.join(path, data_file),'r') as curr_data:
-			data = np.array(curr_data['data']).astype(np.float32)
-			label = np.array(curr_data['label']).astype(np.float32)
+			data = np.array(curr_data['data'])
+			label = np.array(curr_data['label'])
 
 		# print np.max(data), np.max(label)
 
-		if dtype == "uint8":
-			data = data/255.0
-			label = label/255.0
+		if data.dtype == np.uint8:
+			data = data.astype(np.float32)/255.0
+			label = label.astype(np.float32)/255.0
 
 		return data, label
 
