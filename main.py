@@ -23,7 +23,7 @@ def save_model(model, optimizer, path = "/", filename = 'check_point.pth'):
 
 def load_model(model, path, name, mode = "parallel"):
 	state_dict = torch.load(os.path.join(path, name))["model"]
-	new_state_dict = OrderedDict
+	new_state_dict = OrderedDict()
 
 	for k, v in state_dict.items():
 		name = ""
