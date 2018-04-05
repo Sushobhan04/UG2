@@ -103,7 +103,7 @@ def noisy(image, noise_typ):
 		return noisy
 
 def blur_images(images, nTK, scale_factor, flags = [1, 1], gaussian_blur_range = (0, 1)):
-	output_data = []
+	output_data  = []
 	output_label = []
 	for image in images:
 		for kernelIndex in range(nTK):
