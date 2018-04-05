@@ -68,6 +68,11 @@ class DatasetFromFile(Dataset):
 
 		return data, label
 
+	def load_imagenet_data(self, path, data_file):
+		with h5py.File(os.path.join(path, data_file),'r') as curr_data:
+			data = np.array(curr_data['data'])
+			label = np.array(curr_data['label'])
+
 class ImagenetDataset(Dataset):
 	def __init__(self, path, data_file, img_size, data_format = "h5", transform = None):
 		super(ImagenetDataset, self).__init__()
@@ -201,5 +206,62 @@ def parse_imagenet(path, file, img_size = 16):
 	x = np.dstack((x[:, :img_size2], x[:, img_size2:2*img_size2], x[:, 2*img_size2:]))
 	x = x.reshape((x.shape[0], img_size, img_size, 3)).transpose(0, 3, 1, 2)
 	
-	return x,y	
-           
+	return x,y
+
+
+def parse_imagenet_bbox(imagenet_wnids, path):
+
+	imagenet_bbox = {"wnids": [], "bbox": []}
+
+	for wnid in imagenet_wnids:
+		for file in os.listdir(os.path.join(path, wnid)):
+			img_file = file.split(".")[0]
+			e = ET.parse(os.path.join(path, wnid, file)).getroot()
+			
+			for bbox in e.iter('bndbox'):
+				xmin = int(bbox.find('xmin').text)
+				ymin = int(bbox.find('ymin').text)
+				xmax = int(bbox.find('xmax').text)
+				ymax = int(bbox.find('ymax').text)
+				
+				imagenet_bbox["wnids"].append(img_file)
+				imagenet_bbox["bbox"].append([xmin, ymin, xmax, ymax])
+
+	return imagenet_bbox
+
+def create_imagenet_dataset(imagenet_bbox, imagenet_labels, source_path, destination_path, file_name_prefix, bins, buffer_size = 0, batch_size = 2000):
+	count = np.zeros(len(bins), dtype = np.int)
+	data = [[] for i in range(len(bins))]
+	label = [[] for i in range(len(bins))]
+
+	file = None
+	for img_file, bbox in zip(imagenet_bbox["wnids"], imagenet_bbox["bbox"]):
+		wnid = img_file.split("_")[0]
+
+		img = cv2.imread(os.path.join(source_path, wnid, img_file+".JPEG"))
+		bb = image_utils.calculate_bbox(bbox, img.shape[0:2], buffer_size = buffer_size)
+
+		cropped_img = image_utils.crop_image(img, bb)
+		final_img, bin_index = image_utils.resize_bin(crop_image, bins)
+
+
+
+		count[bin_index] = count[bin_index] + 1
+		data[bin_index].append(final_img)
+		label[bin_index].append(imagenet_labels.index(wnid))
+
+		if count[bin_index]%batch_size == 0 and int(count[bin_index]/batch_size) > 0:
+			print(count[bin_index]/batch_size)
+
+			with h5py.File(os.path.join(destination_path, file_name_prefix + "_bin_" + str(bins[bin_index]) + str(int(count[bin_index]/batch_size))+".h5"), "w") as file:
+				file.create_dataset("data", data = np.array(data[bin_index]))
+				file.create_dataset("label", data = np.array(label[bin_index]))
+				file.close()
+
+			data[bin_index] = []
+			data[bin_index] = []
+
+		data.create_dataset(str(count%max_images), data = final_img)
+		label.append(imagenet_labels.index(wnid))
+
+	file.close()

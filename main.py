@@ -83,31 +83,33 @@ def train(config):
 		if stop_training_flag:
 			break
 
-		try:
-			dataset = data_utils.DatasetFromFile(config.data_path, config.data_files[0], config.img_size, data_format = config.data_format)
-			data_loader = DataLoader(dataset, batch_size = config.batch_size, shuffle = False, num_workers = config.num_workers)
-			start = time.time()
+		for data_file in config.data_files:
 
-			for batch in data_loader:
+			dataset = data_utils.DatasetFromFile(config.data_path, data_file, config.img_size, data_format = config.data_format)
+			try:
+				data_loader = DataLoader(dataset, batch_size = config.batch_size, shuffle = False, num_workers = config.num_workers)
+				start = time.time()
 
-				x = data_utils.convert_to_torch_tensor(batch["data"], from_numpy = False, cuda = config.cuda)
-				y = data_utils.convert_to_torch_tensor(batch["label"], from_numpy = False, cuda = config.cuda)
-				optimizer.zero_grad()
+				for batch in data_loader:
 
-				y_pred = model(x)
+					x = data_utils.convert_to_torch_tensor(batch["data"], from_numpy = False, cuda = config.cuda)
+					y = data_utils.convert_to_torch_tensor(batch["label"], from_numpy = False, cuda = config.cuda)
+					optimizer.zero_grad()
 
-				if config.discriminator == "feat_ext":
-					loss = loss_fn(discriminator(y_pred), discriminator(y))
-				elif config.discriminator == "classifier":
-					loss = loss_fn(discriminator(y_pred), y)
+					y_pred = model(x)
 
-				loss_arr.append(loss.data[0])
+					if config.discriminator == "feat_ext":
+						loss = loss_fn(discriminator(y_pred), discriminator(y))
+					elif config.discriminator == "classifier":
+						loss = loss_fn(discriminator(y_pred), y)
 
-				loss.backward()
-				optimizer.step()
+					loss_arr.append(loss.data[0])
 
-		except KeyboardInterrupt:
-			stop_training_flag = True
+					loss.backward()
+					optimizer.step()
+
+			except KeyboardInterrupt:
+				stop_training_flag = True
 
 		mean_epoch_loss = np.mean(loss_arr)
 		if i%config.print_step == 0:
@@ -145,7 +147,7 @@ def test_single(img, config):
 	out = out.data.cpu().numpy()
 
 	if config.hist_eq:
-		out = image_utils.hist_match(out, img)
+		out = image_utils.hist_match(out[0], img[0])
 
 	return out
 
