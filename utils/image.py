@@ -7,7 +7,7 @@ from UG2.lib.pyblur import LinearMotionBlur
 from UG2.utils import data as data_utils
 import copy
 
-def hist_match(source, template):
+def hist_match_grey(source, template):
 	"""
 	Adjust the pixel values of a grayscale image such that its histogram
 	matches that of a target image
@@ -48,6 +48,14 @@ def hist_match(source, template):
 	interp_t_values = np.interp(s_quantiles, t_quantiles, t_values)
 
 	return interp_t_values[bin_idx].reshape(oldshape)
+
+def hist_match(source, template):
+	equalized_img = []
+
+	for channel in range(source.shape[0]):
+		equalized_img.append(hist_match_grey(source[channel], template[channel]))
+
+	return np.array(equalized_img)
 
 def gaussian_blur(inp, sigma = (1.0, 1.0, 0.0)):
 	temp_img = im.filters.gaussian_filter(inp, sigma)
@@ -125,3 +133,60 @@ def blur_images(images, nTK, scale_factor, flags = [1, 1], gaussian_blur_range =
 			output_label.append(np.transpose(image,(2,0,1)))
 
 	return output_data, output_label
+
+
+def calculate_bbox(box, size, buffer_size = 0):
+	center = [(box[0] + box[2])//2, (box[1] + box[3])//2]
+	
+	dim = max(box[2] - box[0], box[3] - box[1]) + buffer_size
+	
+	# xmin = max(0, center[0] - dim//2)
+	# ymin = max(0, center[1] - dim//2)
+	# xmax = min(size[1], center[0] + dim//2)
+	# ymax = min(size[0], center[1] + dim//2)
+	
+	xmin = center[0] - dim//2
+	ymin = center[1] - dim//2
+	xmax = center[0] + dim//2
+	ymax = center[1] + dim//2
+	
+#     print(center, dim)
+	
+	return [xmin, ymin, xmax, ymax]
+
+def crop_image(img, box):
+	size = img.shape[0:2]
+
+	center = [(box[0] + box[2])//2, (box[1] + box[3])//2]
+
+	dim = box[2] - box[0]
+
+
+	xmin = max(0, center[0] - dim//2)
+	ymin = max(0, center[1] - dim//2)
+	xmax = min(size[1], center[0] + dim//2)
+	ymax = min(size[0], center[1] + dim//2)
+
+	x_width = xmax - xmin
+	y_width = ymax - ymin
+
+	final_img = np.zeros((dim, dim, 3), dtype = np.uint8)
+
+	# print(xmin, ymin, xmax, ymax, dim)
+
+	final_img[(dim - y_width)//2 : (dim + y_width)//2, (dim - x_width)//2 : (dim + x_width)//2] = img[ymin:ymax, xmin:xmax]
+
+	return final_img
+
+def resize_bin(img, bins):
+	dim = img.shape[0]
+	selected_b = None
+
+	for b in bins:
+		if dim <= b:
+			selected_b = b
+			break
+
+	final_img = cv2.resize(img, (selected_b, selected_b))
+
+	return final_img, bins.index(selected_b)
