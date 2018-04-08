@@ -8,6 +8,9 @@ import pickle
 from torch.utils.data import Dataset, DataLoader
 import pickle
 from UG2.utils import image as image_utils
+import cv2
+import os
+import glob
 
 class DatasetFromFile(Dataset):
 	def __init__(self, path, data_file, img_size, data_format = "h5", transform = None):
@@ -152,8 +155,7 @@ def create_dataset(data_source_path, source_name_files, image_format, destinatio
 	lr_stack = []
 	hr_stack = []
 
-	for i in range(1, 1+num_images):
-
+	for i in range(num_images):
 		lr_stack.append(patchify(gen_data[i], size = patch_size))
 		hr_stack.append(patchify(gen_label[i], size = patch_size*blur_parameters["scale_factor"]))
 
@@ -265,3 +267,30 @@ def create_imagenet_dataset(imagenet_bbox, imagenet_labels, source_path, destina
 		label.append(imagenet_labels.index(wnid))
 
 	file.close()
+
+def index_to_labels(index, file = "num2label.txt"):
+	# Read the label_number
+	# Map to label_name
+	label = "AnalogClock"
+	return label
+
+def createClassifierLabels( source_path, source_file, destination_path, destination_file):
+	
+	with h5py.File(os.path.join(source_path, source_file),'r') as file:
+		data = np.array(file["data"])
+		label_index  = np.array(file["label"])
+
+	files = glob.glob(destination_path+"/*")
+	for f in files:
+		os.remove(f)
+	
+	f = open(os.path.join(destination_path,"Image2labelMapping.txt"),'w')
+
+	for i,img in enumerate(data):
+		cv2.imwrite(os.path.join(destination_path,destination_file+str(i)+".png"),img)	
+		label_name = index_to_labels(i)
+		image_label = destination_file+str(i)+"\t"+label_name
+		if i!= label_index.shape[0]:
+			image_label = image_label+"\n"
+		f.write(image_label)
+	f.close()	

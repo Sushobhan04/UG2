@@ -118,10 +118,12 @@ def blur_images(images, nTK, scale_factor, flags = [1, 1], gaussian_blur_range =
 			temp_image = np.copy(image)
 
 			if flags[0]:
+				np.random.seed(kernelIndex)
 				sigmaRandom = np.random.uniform(gaussian_blur_range[0], gaussian_blur_range[1]) 
 				temp_image  = gaussian_blur(temp_image, sigma = (sigmaRandom, sigmaRandom,0))  
 
 			if flags[1]:
+				np.random.seed(kernelIndex)
 				dim         = np.random.choice([3, 5, 7, 9], 1)
 				theta       = np.random.uniform(0.0, 360.0)
 				temp_image  = motionBlur3D(temp_image, dim[0], theta, "full")
