@@ -143,22 +143,32 @@ def create_bsd_dataset(factor, num_images, patch_size, dataset_path, destination
 
 	print("data of shape ", lr_set.shape, "and label of shape ", hr_set.shape, " created of type", lr_set.dtype)
 
-def create_dataset(data_source_path, source_name_files, image_format, destination_path, dataset_name, num_images, patch_size, testing_fraction, blur_parameters):
+def create_dataset(data_source_path, source_name_files, image_format, destination_path, dataset_name, num_files, patch_size, testing_fraction, blur_parameters):
 
+  
 	hr_image = []
-	for i in range(num_images):
-		image_name          = os.path.join(data_source_path,source_name_files[i]+image_format)
-		hr_image.append(im.imread(image_name))   
-
+	if image_format == ".png":
+		for i in range(num_files):
+			image_name          = os.path.join(data_source_path,source_name_files[i]+image_format)
+			hr_image.append(im.imread(image_name))
+	else:
+		with h5py.File(os.path.join(data_source_path, source_name_files+image_format),'r') as file:
+			data = np.array(file["data"])
+			hr_image.extend(data)
+	num_images = len(hr_image)
+	
+	print("Number of images in the dataset: "+str(num_images))
+	
 	gen_data, gen_label = image_utils.blur_images(hr_image, blur_parameters["nTK"] ,blur_parameters["scale_factor"], blur_parameters["flags"], blur_parameters["gaussian_blur_range"])
 
 	lr_stack = []
 	hr_stack = []
 
+   
 	for i in range(num_images):
 		lr_stack.append(patchify(gen_data[i], size = patch_size))
 		hr_stack.append(patchify(gen_label[i], size = patch_size*blur_parameters["scale_factor"]))
-
+        
 	lr_set = np.concatenate(lr_stack)
 	hr_set = np.concatenate(hr_stack)
 
