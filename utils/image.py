@@ -6,6 +6,7 @@ import cv2
 from UG2.lib.pyblur import LinearMotionBlur
 from UG2.utils import data as data_utils
 import copy
+import random 
 
 def hist_match_grey(source, template):
 	"""
@@ -116,7 +117,6 @@ def blur_images(images, nTK, scale_factor, flags = [1, 1], gaussian_blur_range =
 	for image in images:
 		for kernelIndex in range(nTK):
 			temp_image = np.copy(image)
-
 			if flags[0]:
 				sigmaRandom = np.random.uniform(gaussian_blur_range[0], gaussian_blur_range[1]) 
 				temp_image  = gaussian_blur(temp_image, sigma = (sigmaRandom, sigmaRandom,0))  

@@ -11,6 +11,8 @@ from UG2.utils import image as image_utils
 import cv2
 import os
 import glob
+import json
+import matplotlib.pyplot as plt
 
 class DatasetFromFile(Dataset):
 	def __init__(self, path, data_file, img_size, data_format = "h5", transform = None):
@@ -143,9 +145,8 @@ def create_bsd_dataset(factor, num_images, patch_size, dataset_path, destination
 
 	print("data of shape ", lr_set.shape, "and label of shape ", hr_set.shape, " created of type", lr_set.dtype)
 
-def create_dataset(data_source_path, source_name_files, image_format, destination_path, dataset_name, num_files, patch_size, testing_fraction, blur_parameters):
+def create_dataset(data_source_path, source_name_files, image_format, destination_path, dataset_name, num_files, patch_size, blur_parameters):
 
-  
 	hr_image = []
 	if image_format == ".png":
 		for i in range(num_files):
@@ -164,24 +165,16 @@ def create_dataset(data_source_path, source_name_files, image_format, destinatio
 	lr_stack = []
 	hr_stack = []
 
-   
 	for i in range(num_images):
 		lr_stack.append(patchify(gen_data[i], size = patch_size))
 		hr_stack.append(patchify(gen_label[i], size = patch_size*blur_parameters["scale_factor"]))
-        
 	lr_set = np.concatenate(lr_stack)
 	hr_set = np.concatenate(hr_stack)
 
-	number_training_images = int(testing_fraction*lr_set.shape[0])
-
-	lr_set_training = lr_set[1:number_training_images].astype(np.uint8)
-	hr_set_training = hr_set[1:number_training_images].astype(np.uint8)
-
-	lr_set_testing  = lr_set[number_training_images+1:].astype(np.uint8)
-	hr_set_testing  = hr_set[number_training_images+1:].astype(np.uint8)
+	lr_set_training = lr_set.astype(np.uint8)
+	hr_set_training = hr_set.astype(np.uint8)
 
 	create_h5(data = lr_set_training, label = hr_set_training, path = destination_path, file_name = dataset_name+".h5")
-	create_h5(data = lr_set_testing, label = hr_set_testing, path = destination_path, file_name = dataset_name+"_testing.h5")
 	print("data of shape ", lr_set_training.shape, "and label of shape ", hr_set_training.shape, " created of type", lr_set_training.dtype)
 
 
@@ -278,29 +271,85 @@ def create_imagenet_dataset(imagenet_bbox, imagenet_labels, source_path, destina
 
 	file.close()
 
-def index_to_labels(index, file = "num2label.txt"):
+def index_to_labels(index, data_path = "/data/UG2_data/", file1 = "UG2_label_names.txt", file2 = "imagenet_to_UG2_labels.txt"):
 	# Read the label_number
 	# Map to label_name
-	label = "AnalogClock"
-	return label
+	with open(os.path.join(data_path, file2), 'r') as outfile:
+		imagenet_to_UG2_labels = list(json.load(outfile))    
+	imageNetIndex = imagenet_to_UG2_labels[index]
+	if imageNetIndex == -1:
+		print("UG2Class not found in list")
+	with open(os.path.join(data_path, file1), 'r') as outfile:
+		UG2_set_labels = list(json.load(outfile))    
+	UG2label = UG2_set_labels[imageNetIndex]
+	return UG2label
 
-def createClassifierLabels( source_path, source_file, destination_path, destination_file):
+def create_classifier_labels( source_path, source_file, destination_path, destination_file):
 	
 	with h5py.File(os.path.join(source_path, source_file),'r') as file:
 		data = np.array(file["data"])
 		label_index  = np.array(file["label"])
 
-	files = glob.glob(destination_path+"/*")
+	files = glob.glob(destination_path+"*")
 	for f in files:
 		os.remove(f)
-	
-	f = open(os.path.join(destination_path,"Image2labelMapping.txt"),'w')
+	with open(os.path.join(destination_path,"Image2labelMapping.txt"),'w') as f:
+		for i,img in enumerate(data):
+			cv2.imwrite(os.path.join(destination_path,destination_file+str(i)+".png"),img)	
+			label_name = index_to_labels(label_index[i])
+			image_label = destination_file+str(i)+"\t"+label_name
+			if i!= label_index.shape[0]:
+				image_label = image_label+"\n"
+			f.write(image_label)	
 
-	for i,img in enumerate(data):
-		cv2.imwrite(os.path.join(destination_path,destination_file+str(i)+".png"),img)	
-		label_name = index_to_labels(i)
-		image_label = destination_file+str(i)+"\t"+label_name
-		if i!= label_index.shape[0]:
-			image_label = image_label+"\n"
-		f.write(image_label)
-	f.close()	
+
+def create_labeled_blurry_dataset(source_path, source_file, destination_path, destination_file, blur_parameters):
+
+	hr_image    = []
+	label_image = []
+
+	print("Path of input file: "+os.path.join(source_path, source_file))
+	with h5py.File(os.path.join(source_path, source_file),'r') as file:
+		data = np.array(file["data"])
+		label_index  = np.array(file["label"])
+		hr_image.extend(data)
+		label_image.extend(label_index)
+
+	num_images = len(hr_image)
+	print("Number of images in the dataset: "+str(num_images))
+
+	gen_data, gen_label = image_utils.blur_images(hr_image, blur_parameters["nTK"] ,blur_parameters["scale_factor"], blur_parameters["flags"], blur_parameters["gaussian_blur_range"])
+	gen_data = np.asarray(gen_data)
+
+	data_blurry     = gen_data.astype(np.uint8)
+	data_blurry     = data_blurry.transpose(0, 2, 3, 1)
+	label_blurry    = np.asarray(label_image)
+
+	create_h5(data = data_blurry, label = label_blurry, path = destination_path, file_name = destination_file)
+	print("Created file at: "+os.path.join(destination_path, destination_file))	
+	print("data of shape ", data_blurry.shape, "and label of shape ", label_blurry.shape, " created of type", data_blurry.dtype)
+
+
+def create_mixed_dataset(source_path, source_files, destination_path, destination_file):
+
+	hr_image      = []
+	label_image   = []
+	for source_file in source_files:
+		print("Path of input file: "+os.path.join(source_path, source_file))
+		with h5py.File(os.path.join(source_path, source_file),'r') as file:
+			data = np.array(file["data"])
+			label_index  = np.array(file["label"])
+			hr_image.extend(data[range(100)])
+			label_image.extend(label_index[range(100)]) 
+
+	hr_image        = np.asarray(hr_image)		
+	data_blurry     = hr_image.astype(np.uint8)
+	label_blurry    = np.asarray(label_image)
+
+	create_h5(data = data_blurry, label = label_blurry, path = destination_path, file_name = destination_file)
+	print("Created file at: "+os.path.join(destination_path, destination_file))	
+	print("data of shape ", data_blurry.shape, "and label of shape ", label_blurry.shape, " created of type", data_blurry.dtype)
+
+
+
+

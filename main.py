@@ -71,9 +71,9 @@ def train(config):
 
 	if config.resume_training_flag:
 		if config.data_parallel:        
-			load_model(model, config.resume_model_path, config.resume_model_name,mode = "parallel")
+			load_model(model, config.resume_model_path, config.resume_model_name, mode = "parallel")
 		else:        
-			load_model(model, config.resume_model_path, config.resume_model_name,mode = "single")
+			load_model(model, config.resume_model_path, config.resume_model_name, mode = "single")
 
 	optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr = config.lr)
 	loss_fn = nn.MSELoss().cuda()
