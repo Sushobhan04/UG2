@@ -12,24 +12,32 @@ import cv2
 import os
 import glob
 import json
-import matplotlib.pyplot as plt
+import xml.etree.ElementTree as ET
+import cv2
+
 
 class DatasetFromFile(Dataset):
-	def __init__(self, path, data_file, img_size, data_format = "h5", transform = None):
+	def __init__(self, path, data_file, img_size = None, data_format = "h5", transform = None):
 		super(DatasetFromFile, self).__init__()
 		self.transform = transform
 		self.img_size = img_size
+		self.data_format = data_format
 
 		if data_format == "h5":
 			self.data, self.label = self.load_h5_data(path, data_file)
 		elif data_format == "binary":
 			self.data, self.label = self.load_binary_data(path, data_file)
+		elif data_format == "h5_bbox":
+			self.data, self.label = self.load_h5_bbox_data(path, data_file)
 
 	def __len__(self):
 		return len(self.data)
 
 	def __getitem__(self, idx):
-		return {"data": self.data[idx], "label": self.label[idx]}
+		if self.data_format == "h5_bbox":
+			return {"data": self.data[idx], "label": self.label[idx]}
+		else:
+			return {"data": self.data[idx], "label": self.label[idx]}
 
 	def load_binary_data(self, path, data_file):
 		data_file = os.path.join(path, data_file)
@@ -73,10 +81,28 @@ class DatasetFromFile(Dataset):
 
 		return data, label
 
-	def load_imagenet_data(self, path, data_file):
+	def load_h5_bbox_data(self, path, data_file):
 		with h5py.File(os.path.join(path, data_file),'r') as curr_data:
-			data = np.array(curr_data['data'])
 			label = np.array(curr_data['label'])
+			bbox = np.array(curr_data['bbox'])
+
+			np_data = np.array(curr_data['data'])
+			np_data = np.transpose(np_data, (0, 3, 1, 2))
+
+			if np_data.dtype == np.uint8:
+				np_data = np_data.astype(np.float32)/255.0
+
+			crop_data = []
+
+			for i,bb in enumerate(bbox):
+				crop_data.append(np_data[i, :, bb[1]:bb[3], bb[0]:bb[2]])
+
+		label_one_hot = np.zeros((label.shape[0], 48), dtype = np.float32)
+
+		for i in range(label.shape[0]):
+			label_one_hot[i, label[i]] = 1.0
+
+		return crop_data, label_one_hot
 
 class ImagenetDataset(Dataset):
 	def __init__(self, path, data_file, img_size, data_format = "h5", transform = None):
@@ -89,9 +115,12 @@ def unpickle(file):
 	  dict = pickle.load(fo)
 	return dict
 
-def convert_to_torch_tensor(tensor, cuda = True, from_numpy = True, requires_grad = False):
+def convert_to_torch_tensor(tensor, cuda = True, from_numpy = True, requires_grad = False, dtype = "float32"):
 	if from_numpy:
-		tensor = torch.FloatTensor(tensor)
+		if dtype == "float32":
+			tensor = torch.FloatTensor(tensor)
+		elif dtype == "int64":
+			tensor = torch.LongTensor(tensor)
 
 	if cuda:
 		tensor = tensor.cuda()
@@ -176,13 +205,6 @@ def create_dataset(data_source_path, source_name_files, image_format, destinatio
 
 	create_h5(data = lr_set_training, label = hr_set_training, path = destination_path, file_name = dataset_name+".h5")
 	print("data of shape ", lr_set_training.shape, "and label of shape ", hr_set_training.shape, " created of type", lr_set_training.dtype)
-
-
-def parse_vatic_annotations(path, txt_filename):
-	txt_file = open(os.path.join(path, txt_filename), "r")
-
-	for line in txt_file:
-		line = line.rstrip().split(" ")
 
 def unpickle(file):
 	with open(file, 'rb') as fo:
@@ -349,7 +371,3 @@ def create_mixed_dataset(source_path, source_files, destination_path, destinatio
 	create_h5(data = data_blurry, label = label_blurry, path = destination_path, file_name = destination_file)
 	print("Created file at: "+os.path.join(destination_path, destination_file))	
 	print("data of shape ", data_blurry.shape, "and label of shape ", label_blurry.shape, " created of type", data_blurry.dtype)
-
-
-
-

@@ -138,7 +138,7 @@ def blur_images(images, nTK, scale_factor, flags = [1, 1], gaussian_blur_range =
 def calculate_bbox(box, size, buffer_size = 0):
 	center = [(box[0] + box[2])//2, (box[1] + box[3])//2]
 	
-	dim = max(box[2] - box[0], box[3] - box[1]) + buffer_size
+	dim = np.array([box[2] - box[0], box[3] - box[1]]) + np.array([buffer_size, buffer_size])
 	
 	# xmin = max(0, center[0] - dim//2)
 	# ymin = max(0, center[1] - dim//2)
@@ -154,27 +154,42 @@ def calculate_bbox(box, size, buffer_size = 0):
 	
 	return [xmin, ymin, xmax, ymax]
 
-def crop_image(img, box):
+def crop_image(img, box, dim = 224):
 	size = img.shape[0:2]
-
 	center = [(box[0] + box[2])//2, (box[1] + box[3])//2]
+	box_size = [box[2] - box[0], box[3] - box[1]]
 
-	dim = box[2] - box[0]
+	roi = dim
 
+	if box_size[0] > dim or box_size[1] > dim:
+		roi = max(box_size[0], box_size[1])
 
-	xmin = max(0, center[0] - dim//2)
-	ymin = max(0, center[1] - dim//2)
-	xmax = min(size[1], center[0] + dim//2)
-	ymax = min(size[0], center[1] + dim//2)
+		if roi > size[0] or roi > size[1]:
+			roi = min(size[0], size[1])
 
-	x_width = xmax - xmin
-	y_width = ymax - ymin
+	# get new xmin and ymin
+	if center[0] - roi//2 >= 0:
+		if center[0] + roi//2 <= size[1]:
+			xmin = center[0] - roi//2
+		else:
+			xmin = size[1] - roi
+	else:
+		xmin = 0
 
-	final_img = np.zeros((dim, dim, 3), dtype = np.uint8)
+	if center[1] - roi//2 >= 0:
+		if center[1] + roi//2 <= size[0]:
+			ymin = center[1] - roi//2
+		else:
+			ymin = size[0] - roi
+	else:
+		ymin = 0
 
 	# print(xmin, ymin, xmax, ymax, dim)
 
-	final_img[(dim - y_width)//2 : (dim + y_width)//2, (dim - x_width)//2 : (dim + x_width)//2] = img[ymin:ymax, xmin:xmax]
+	ymax = min(size[0], ymin + roi)
+	xmax = min(size[1], xmin + roi)
+
+	final_img = img[ymin:ymin + roi, xmin: xmin + roi]
 
 	return final_img
 
@@ -186,6 +201,9 @@ def resize_bin(img, bins):
 		if dim <= b:
 			selected_b = b
 			break
+
+		selected_b = bins[-1]
+
 
 	final_img = cv2.resize(img, (selected_b, selected_b))
 

@@ -27,26 +27,22 @@ def vgg16_classifier():
 	return vgg16
 
 class Classifier(nn.Module):
-	def __init__(self, classifier, size, mapping_list = None):
+	def __init__(self, classifier, size):
 		super(Classifier, self).__init__()
 
 		self.ups = nn.Upsample(size = size, mode = 'bilinear')
 		self.classifier = classifier
-		self.softmax = nn.Softmax(dim = 0)
+		self.softmax = nn.Softmax(dim = 1)
 
 
-	def forward(self, x):
+	def forward(self, x, box = None):
+		if box is not None:
+			# print(x.shape, box)
+			x = x[:, :, box[0,1]:box[0,3], box[0,0]:box[0,2]]
+			
 		out = self.ups(x)
 		out = self.classifier(out)
 		out = self.softmax(out)
-
-		if mapping_list is not None:
-			mapped_output = []
-
-			for i in range(len(mapping_list)):
-				mapped_output.append(torch.sum(torch.index_select(out, 0, mapping_list[i])))
-
-			out = torch.stack(mapped_output)
 
 		return out
 
