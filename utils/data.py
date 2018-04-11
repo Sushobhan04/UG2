@@ -8,13 +8,10 @@ import pickle
 from torch.utils.data import Dataset, DataLoader
 import pickle
 from UG2.utils import image as image_utils
-import cv2
-import os
-import glob
-import json
 import xml.etree.ElementTree as ET
 import cv2
-
+import glob
+import json
 
 class DatasetFromFile(Dataset):
 	def __init__(self, path, data_file, img_size = None, data_format = "h5", transform = None):
