@@ -186,7 +186,7 @@ def create_dataset(data_source_path, source_name_files, image_format, destinatio
 	
 	print("Number of images in the dataset: "+str(num_images))
 	
-	gen_data, gen_label = image_utils.blur_images(hr_image, blur_parameters["nTK"] ,blur_parameters["scale_factor"], blur_parameters["flags"], blur_parameters["gaussian_blur_range"])
+	gen_data, gen_label = image_utils.blur_images(hr_image, blur_parameters["nTK"] ,blur_parameters["scale_factor"],blur_parameters["blur_Seed"],blur_parameters["flags"], blur_parameters["gaussian_blur_range"])
 
 	lr_stack = []
 	hr_stack = []

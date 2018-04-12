@@ -111,12 +111,14 @@ def noisy(image, noise_typ):
 		noisy = image + image * gauss
 		return noisy
 
-def blur_images(images, nTK, scale_factor, flags = [1, 1], gaussian_blur_range = (0, 1)):
+def blur_images(images, nTK, scale_factor, blur_Seed, flags = [1, 1], gaussian_blur_range = (0, 1)):
 	output_data  = []
 	output_label = []
 	for image in images:
 		for kernelIndex in range(nTK):
 			temp_image = np.copy(image)
+			if blurSeed == "FixedSeed":
+				random.seed(1)
 			if flags[0]:
 				sigmaRandom = np.random.uniform(gaussian_blur_range[0], gaussian_blur_range[1]) 
 				temp_image  = gaussian_blur(temp_image, sigma = (sigmaRandom, sigmaRandom,0))  
