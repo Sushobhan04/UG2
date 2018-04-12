@@ -290,11 +290,21 @@ def create_imagenet_dataset(imagenet_bbox, imagenet_labels, source_path, destina
 
 	file.close()
 
-def index_to_labels(index, data_path = "/data/UG2_data/", file1 = "UG2_label_names.txt", file2 = "imagenet_to_UG2_labels.txt"):
+def UG2_index_to_labels(index, data_path = "/data/UG2_data/", file1 = "UG2_label_names.txt", file2 = "imagenet_to_UG2_labels.txt"):
+	# Read the label_number
+	# Map to label_name
+	with open(os.path.join(data_path, file1), 'r') as outfile:
+		UG2_set_labels = list(json.load(outfile))    
+	UG2label = UG2_set_labels[index]
+	return UG2label
+
+
+
+def imageNet_index_to_labels(index, data_path = "/data/UG2_data/", file1 = "UG2_label_names.txt", file2 = "imagenet_to_UG2_labels.txt"):
 	# Read the label_number
 	# Map to label_name
 	with open(os.path.join(data_path, file2), 'r') as outfile:
-		imagenet_to_UG2_labels = list(json.load(outfile))    
+		imagenet_to_UG2_labels = list(json.load(outfile))   
 	imageNetIndex = imagenet_to_UG2_labels[index]
 	if imageNetIndex == -1:
 		print("UG2Class not found in list")
@@ -315,7 +325,7 @@ def create_classifier_labels( source_path, source_file, destination_path, destin
 	with open(os.path.join(destination_path,"Image2labelMapping.txt"),'w') as f:
 		for i,img in enumerate(data):
 			cv2.imwrite(os.path.join(destination_path,destination_file+str(i)+".png"),img)	
-			label_name = index_to_labels(label_index[i])
+			label_name = imageNet_index_to_labels(label_index[i])
 			image_label = destination_file+str(i)+"\t"+label_name
 			if i!= label_index.shape[0]:
 				image_label = image_label+"\n"

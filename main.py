@@ -346,4 +346,4 @@ def train_ug2_classifier(config):
 	print("Model saved as: ", config.model_name)
 
 	with open(os.path.join(config.model_path, config.model_name + ".txt"), 'w') as outfile:
-    	json.dump(epoch_loss_arr, outfile)
+		json.dump(epoch_loss_arr, outfile)
