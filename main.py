@@ -50,7 +50,7 @@ def exit_training(error, error_history, window = 5, epsilon = 0.01):
 		return True
 	else:
 		return False
-    
+	
 def train(config):
 
 	model = SRNet()
@@ -336,7 +336,7 @@ def train_ug2_classifier(config):
 			print("time: ", time.time() - start, " Error: ", mean_epoch_loss)
 
 		if i%config.checkpoint == 0:
-			save_model(model, optimizer, path = config.model_path, filename = config.model_name + "_chkpt_" + str(i) + ".pth")
+			save_model(model, optimizer, path = config.model_path, filename = config.model_name + "_chkpt.pth")
 			print("saved checkpoint at epoch: ", i)
 
 		if exit_training(mean_epoch_loss, loss_history, window = config.exit_loss_window, epsilon = config.loss_epsilon):
