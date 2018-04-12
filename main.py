@@ -16,7 +16,7 @@ from UG2.utils import image as image_utils
 from UG2.models.srnet import SRNet, feat_ext, Classifier, vgg16_classifier
 from collections import OrderedDict
 import copy
-
+import json
 
 def save_model(model, optimizer, path = "/", filename = 'check_point.pth'):
 	torch.save({'model':model.state_dict(), 'optimizer':optimizer.state_dict()}, os.path.join(path, filename))
@@ -283,6 +283,7 @@ def train_ug2_classifier(config):
 	scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones = config.lr_step_list, gamma= config.step_decay_param)
 	loss_fn = nn.MSELoss().cuda()
 	loss_history = []
+	epoch_loss_arr = []
 
 	for i in range(config.epochs):
 
@@ -330,6 +331,7 @@ def train_ug2_classifier(config):
 		optimizer.step()
 
 		mean_epoch_loss = np.mean(loss_arr)
+		epoch_loss_arr.append(mean_epoch_loss)
 		if i%config.print_step == 0:
 			print("time: ", time.time() - start, " Error: ", mean_epoch_loss)
 
@@ -342,3 +344,6 @@ def train_ug2_classifier(config):
 
 	save_model(model, optimizer, path = config.model_path, filename = config.model_name)
 	print("Model saved as: ", config.model_name)
+
+	with open(os.path.join(config.model_path, config.model_name + ".txt"), 'w') as outfile:
+    	json.dump(epoch_loss_arr, outfile)
