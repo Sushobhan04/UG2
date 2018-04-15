@@ -6,6 +6,8 @@ from UG2.utils import data as data_utils
 from UG2.utils import image as image_utils
 import copy
 import json
+from PIL import Image
+
 
 def parse_imagenet(path, file, img_size = 16):
 	data_file = os.path.join(data_folder, file)
@@ -73,10 +75,20 @@ def create_imagenet_dataset(imagenet_bbox, imagenet_labels, source_path, destina
 	data = []
 	label = []
 
-	for img_file, bbox in zip(imagenet_bbox["wnids"], imagenet_bbox["bbox"]):
+	random_index = np.arange(len(imagenet_bbox["wnids"]))
+
+	np.random.shuffle(random_index)
+
+	for i in range(len(imagenet_bbox["wnids"])):
+		index = random_index[i]
+
+		img_file = imagenet_bbox["wnids"][index]
+		bbox = imagenet_bbox["bbox"][index]
+
 		wnid = img_file.split("_")[0]
 
 		img = cv2.imread(os.path.join(source_path, wnid, img_file+".JPEG"))
+		img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 		# bb = image_utils.calculate_bbox(bbox, img.shape[0:2], buffer_size = buffer_size)
 
 		cropped_img = image_utils.crop_image(img, bbox, dim = size[0])
@@ -149,7 +161,60 @@ def UG2imagenet_labels(name = None, idx = None, path = "/data/UG2_data", return_
 	return ret
 
 
+def create_imagenet_compressed(imagenet_bbox, imagenet_labels, source_path, destination_path, file_name_prefix, size, buffer_size = 0, batch_size = 2000, quality = 10):
+	count = 0
+	data = []
+	label = []
+	img_class = []
 
+	random_index = np.arange(len(imagenet_bbox["wnids"]))
+
+	np.random.shuffle(random_index)
+
+	for i in range(len(imagenet_bbox["wnids"])):
+		index = random_index[i]
+
+		img_file = imagenet_bbox["wnids"][index]
+		bbox = imagenet_bbox["bbox"][index]
+
+		wnid = img_file.split("_")[0]
+
+		img = cv2.imread(os.path.join(source_path, wnid, img_file+".JPEG"))
+		img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+		# bb = image_utils.calculate_bbox(bbox, img.shape[0:2], buffer_size = buffer_size)
+
+		cropped_img = image_utils.crop_image(img, bbox, dim = size[0])
+		resized_img = cv2.resize(cropped_img, size)
+
+		label_img = np.copy(resized_img)
+
+		pil_img = Image.fromarray(resized_img)
+		pil_img.save("/home/susho/temp.jpg", "JPEG", quality=quality)
+
+
+		final_img = cv2.imread("/home/susho/temp.jpg")
+		final_img = cv2.cvtColor(final_img, cv2.COLOR_RGB2BGR)
+
+		label_img = np.transpose(label_img, (2, 0, 1))
+		final_img = np.transpose(final_img, (2, 0, 1))
+
+
+		count += 1
+		data.append(final_img)
+		label.append(label_img)
+		img_class.append(imagenet_labels.index(wnid))
+
+		if count%batch_size == 0 and int(count/batch_size) > 0:
+			print(count/batch_size)
+
+			with h5py.File(os.path.join(destination_path, file_name_prefix + "_" + str(int(count/batch_size))+".h5"), "w") as file:
+				file.create_dataset("data", data = np.array(data))
+				file.create_dataset("label", data = np.array(label))
+				file.create_dataset("class", data = np.array(img_class))
+
+			data = []
+			label = []
+			img_class = []
 
 
 

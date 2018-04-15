@@ -155,7 +155,11 @@ def calculate_bbox(box, size, buffer_size = 0):
 	return [xmin, ymin, xmax, ymax]
 
 def crop_image(img, box, dim = 224):
-	size = img.shape[0:2]
+	if img.shape[0] == 3:
+		size = img.shape[1:3]
+	else:
+		size = img.shape[0:2]
+		
 	center = [(box[0] + box[2])//2, (box[1] + box[3])//2]
 	box_size = [box[2] - box[0], box[3] - box[1]]
 
@@ -189,7 +193,10 @@ def crop_image(img, box, dim = 224):
 	ymax = min(size[0], ymin + roi)
 	xmax = min(size[1], xmin + roi)
 
-	final_img = img[ymin:ymin + roi, xmin: xmin + roi]
+	if img.shape[0] == 3:
+		final_img = img[:, ymin:ymin + roi, xmin: xmin + roi]
+	else:
+		final_img = img[ymin:ymin + roi, xmin: xmin + roi]
 
 	return final_img
 

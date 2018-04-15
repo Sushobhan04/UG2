@@ -307,7 +307,8 @@ def create_classifier_labels( source_path, source_file, destination_path, destin
 	
 	with h5py.File(os.path.join(source_path, source_file),'r') as file:
 		data = np.array(file["data"])
-		label_index  = np.array(file["label"])
+		label = np.array(file["label"])
+		class_idx  = np.array(file["class"])
 
 	files = glob.glob(destination_path+"*")
 	for f in files:
@@ -315,9 +316,9 @@ def create_classifier_labels( source_path, source_file, destination_path, destin
 	with open(os.path.join(destination_path,"Image2labelMapping.txt"),'w') as f:
 		for i,img in enumerate(data):
 			cv2.imwrite(os.path.join(destination_path,destination_file+str(i)+".png"),img)	
-			label_name = index_to_labels(label_index[i])
+			label_name = index_to_labels(class_idx[i])
 			image_label = destination_file+str(i)+"\t"+label_name
-			if i!= label_index.shape[0]:
+			if i!= class_idx.shape[0]:
 				image_label = image_label+"\n"
 			f.write(image_label)	
 
