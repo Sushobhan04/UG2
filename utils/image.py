@@ -7,6 +7,7 @@ from UG2.lib.pyblur import LinearMotionBlur
 from UG2.utils import data as data_utils
 import copy
 import random 
+import np.fft as fft
 
 def hist_match_grey(source, template):
 	"""
@@ -157,7 +158,11 @@ def calculate_bbox(box, size, buffer_size = 0):
 	return [xmin, ymin, xmax, ymax]
 
 def crop_image(img, box, dim = 224):
-	size = img.shape[0:2]
+	if img.shape[0] == 3:
+		size = img.shape[1:3]
+	else:
+		size = img.shape[0:2]
+		
 	center = [(box[0] + box[2])//2, (box[1] + box[3])//2]
 	box_size = [box[2] - box[0], box[3] - box[1]]
 
@@ -191,7 +196,10 @@ def crop_image(img, box, dim = 224):
 	ymax = min(size[0], ymin + roi)
 	xmax = min(size[1], xmin + roi)
 
-	final_img = img[ymin:ymin + roi, xmin: xmin + roi]
+	if img.shape[0] == 3:
+		final_img = img[:, ymin:ymin + roi, xmin: xmin + roi]
+	else:
+		final_img = img[ymin:ymin + roi, xmin: xmin + roi]
 
 	return final_img
 
@@ -210,3 +218,43 @@ def resize_bin(img, bins):
 	final_img = cv2.resize(img, (selected_b, selected_b))
 
 	return final_img, bins.index(selected_b)
+
+def filter_image(im, centers, clean_center, width):
+	s = im.shape
+
+	xmin = clean_center[0] - width//2 + s[0]//2
+	xmax = clean_center[0] + width//2 + s[0]//2
+	ymin = clean_center[1] - width//2 + s[1]//2
+	ymax = clean_center[1] + width//2 + s[1]//2
+	
+	box = im[xmin:xmax, ymin:ymax]
+	for ind in range(len(centers)):
+		xmin = centers[ind][0] - width//2 + s[0]//2
+		xmax = centers[ind][0] + width//2 + s[0]//2
+		ymin = centers[ind][1] - width//2 + s[1]//2
+		ymax = centers[ind][1] + width//2 + s[1]//2
+
+		im_temp = im[xmin:xmax, ymin:ymax]
+		current_mean = np.mean(im_temp)
+		# target_mean = np.mean(box)
+		target_mean = current_mean/10
+		im[xmin:xmax, ymin:ymax] = im_temp/current_mean*target_mean
+	
+	return im
+
+def remove_artifacts(im):
+	im2 = np.zeros(im.shape)
+
+	s = im.shape[1:]
+	centers = [(29 - 112, 69 - 112), (71 - 112, 204 - 112), (156 - 112, 20 - 112), (199 - 112, 163 - 112)];
+	width = 40
+
+	clean_center = (width//2 - s[0]//2, s[1]//2 - width//2)
+	for ind in range(im.shape[0]):
+		imTemp = fft.fft2(im[ind, :, :])
+		imTemp = fft.fftshift(imTemp)
+		imTemp =  filter_image(imTemp, centers, clean_center, width)
+		imTemp = np.abs(fft.ifft2(imTemp))
+		im2[ind, :, :] = imTemp
+
+	return im2

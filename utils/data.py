@@ -186,7 +186,7 @@ def create_dataset(data_source_path, source_name_files, image_format, destinatio
 	
 	print("Number of images in the dataset: "+str(num_images))
 	
-	gen_data, gen_label = image_utils.blur_images(hr_image, blur_parameters["nTK"] ,blur_parameters["scale_factor"],blur_parameters["blur_Seed"],blur_parameters["flags"], blur_parameters["gaussian_blur_range"])
+	gen_data, gen_label = image_utils.blur_images(hr_image, blur_parameters["nTK"] ,blur_parameters["scale_factor"], blur_parameters["flags"], blur_parameters["gaussian_blur_range"])
 
 	lr_stack = []
 	hr_stack = []
@@ -290,21 +290,11 @@ def create_imagenet_dataset(imagenet_bbox, imagenet_labels, source_path, destina
 
 	file.close()
 
-def UG2_index_to_labels(index, data_path = "/data/UG2_data/", file1 = "UG2_label_names.txt", file2 = "imagenet_to_UG2_labels.txt"):
-	# Read the label_number
-	# Map to label_name
-	with open(os.path.join(data_path, file1), 'r') as outfile:
-		UG2_set_labels = list(json.load(outfile))    
-	UG2label = UG2_set_labels[index]
-	return UG2label
-
-
-
-def imageNet_index_to_labels(index, data_path = "/data/UG2_data/", file1 = "UG2_label_names.txt", file2 = "imagenet_to_UG2_labels.txt"):
+def index_to_labels(index, data_path = "/data/UG2_data/", file1 = "UG2_label_names.txt", file2 = "imagenet_to_UG2_labels.txt"):
 	# Read the label_number
 	# Map to label_name
 	with open(os.path.join(data_path, file2), 'r') as outfile:
-		imagenet_to_UG2_labels = list(json.load(outfile))   
+		imagenet_to_UG2_labels = list(json.load(outfile))    
 	imageNetIndex = imagenet_to_UG2_labels[index]
 	if imageNetIndex == -1:
 		print("UG2Class not found in list")
@@ -317,19 +307,26 @@ def create_classifier_labels( source_path, source_file, destination_path, destin
 	
 	with h5py.File(os.path.join(source_path, source_file),'r') as file:
 		data = np.array(file["data"])
-		label_index  = np.array(file["label"])
+		label = np.array(file["label"])
+		class_idx  = np.array(file["class"])
 
 	files = glob.glob(destination_path+"*")
 	for f in files:
 		os.remove(f)
+
+	label_write = []
+
+	for i,img in enumerate(data):
+		img = np.transpose(img, (1, 2, 0))
+		img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
+		cv2.imwrite(os.path.join(destination_path,destination_file+str(i)+".png"),img)
+		label_name = index_to_labels(class_idx[i])
+		image_label = destination_file+str(i)+"\t"+label_name
+		label_write.append(image_label)
+
 	with open(os.path.join(destination_path,"Image2labelMapping.txt"),'w') as f:
-		for i,img in enumerate(data):
-			cv2.imwrite(os.path.join(destination_path,destination_file+str(i)+".png"),img)	
-			label_name = imageNet_index_to_labels(label_index[i])
-			image_label = destination_file+str(i)+"\t"+label_name
-			if i!= label_index.shape[0]:
-				image_label = image_label+"\n"
-			f.write(image_label)	
+		f.write("\n".join(label_write))
 
 
 def create_labeled_blurry_dataset(source_path, source_file, destination_path, destination_file, blur_parameters):
