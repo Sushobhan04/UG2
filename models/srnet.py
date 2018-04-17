@@ -5,26 +5,59 @@ import torchvision.models as models
 import torch.nn as nn
 import numpy as np
 
+def weights_init(m):
+	classname = m.__class__.__name__
+	if isinstance(m, nn.Conv2d):
+		nn.init.dirac(m.weight.data)
 
-def feat_ext():
-	vgg16 = models.vgg16(pretrained=True).cuda()
-	for param in vgg16.parameters():
-		# print param.shape
+
+def feat_ext(ext_type = "vgg16", cuda = True):
+	temp_model = None
+	model = None
+	num_layers = 0
+
+	if ext_type == "vgg16":
+		temp_model = models.vgg16(pretrained=True)
+		num_layers = 9
+
+	elif ext_type == "vgg16_bn":
+		temp_model = models.vgg16_bn(pretrained=True)
+		# print(temp_model)
+		num_layers = 13
+
+	for param in temp_model.parameters():
 		param.requires_grad = False
 
-	# label_bat = Variable(torch.randn(64, 3, 200,200)).cuda()
-	# print vgg16
-	model = torch.nn.Sequential(*(vgg16.features[i] for i in range(9)))
-	# print model(label_bat)[0,0,0,0]
+	model = torch.nn.Sequential(*(temp_model.features[i] for i in range(num_layers)))
+
+	if cuda:
+		model.cuda()
+
 	return model
 
-def vgg16_classifier():
-	vgg16 = models.vgg16(pretrained=True).cuda()
-	for param in vgg16.parameters():
-		# print param.shape
-		param.requires_grad = False
+def pretrained_classifier(classifier_type, cuda = True):
+	classifier = None
 
-	return vgg16
+	if classifier_type == "vgg16":
+		classifier = models.vgg16(pretrained=True)
+
+	elif classifier_type == "vgg16_bn":
+		classifier = models.vgg16_bn(pretrained=True)
+		
+	elif classifier_type == "vgg19":
+		classifier = models.vgg19(pretrained=True)
+
+	elif classifier_type == "resnet50":
+		classifier = models.resnet50(pretrained=True)
+
+	for param in classifier.parameters():
+			param.requires_grad = False
+
+
+	if cuda:
+		classifier.cuda()
+
+	return classifier
 
 class Classifier(nn.Module):
 	def __init__(self, classifier, size):
@@ -145,7 +178,3 @@ class SRNet(nn.Module):
 		out = self.bn4(out)
 
 		return out
-
-
-
-

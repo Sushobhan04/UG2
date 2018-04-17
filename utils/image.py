@@ -155,6 +155,8 @@ def calculate_bbox(box, size, buffer_size = 0):
 	return [xmin, ymin, xmax, ymax]
 
 def crop_image(img, box, dim = 224):
+	img = np.copy(img)
+
 	if img.shape[0] == 3:
 		size = img.shape[1:3]
 	else:

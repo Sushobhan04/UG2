@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import random
 from UG2.utils import data as data_utils
 from UG2.utils import image as image_utils
-from UG2.models.srnet import SRNet, feat_ext, Classifier, vgg16_classifier
+from UG2.models.srnet import SRNet, feat_ext, Classifier, pretrained_classifier, weights_init
 from collections import OrderedDict
 import copy
 import json
@@ -54,20 +54,30 @@ def exit_training(error, error_history, window = 5, epsilon = 0.01):
 def train(config):
 
 	model = SRNet()
+
+	if config.weights_init:
+		model.apply(weights_init)
+
 	stop_training_flag = False
 
-	if config.discriminator == "feat_ext":
-		discriminator = feat_ext()
-	elif config.discriminator == "classifier":
-		discriminator = Classifier(vgg16_classifier(), (224, 224))
+	feat_extractor = feat_ext(config.ext_type, cuda = config.cuda)
+	
+	if config.discriminator == "classifier":
+		classifier = Classifier(pretrained_classifier(config.classifier_type, cuda = config.cuda), (224, 224))
 
 	if config.cuda:
 		model.cuda()
-		discriminator.cuda()
+		feat_extractor.cuda()
+
+		if config.discriminator == "classifier":
+			classifier.cuda()
 
 	if config.data_parallel:
 		model = nn.DataParallel(model)
-		discriminator = nn.DataParallel(discriminator)
+		feat_extractor = nn.DataParallel(feat_extractor)
+
+		if config.discriminator == "classifier":
+			classifier = nn.DataParallel(classifier)
 
 	if config.resume_training_flag:
 		if config.data_parallel:        
@@ -106,20 +116,28 @@ def train(config):
 
 					x = data_utils.convert_to_torch_tensor(batch["data"], from_numpy = False, cuda = config.cuda)
 					y = data_utils.convert_to_torch_tensor(batch["label"], from_numpy = False, cuda = config.cuda)
+					
+					if config.discriminator == "classifier":
+						cl = data_utils.convert_to_torch_tensor(batch["class"], from_numpy = False, cuda = config.cuda)
 					optimizer.zero_grad()
 
 					y_pred = model(x)
-					y_pred = discriminator(y_pred)
+					y_pred_feat = feat_extractor(y_pred)
 
-					if config.discriminator == "feat_ext":
-						loss = loss_fn(y_pred, discriminator(y))
-					elif config.discriminator == "classifier":
-						y_pred = ug2_classifier_loss(y_pred.cpu(), config)
-						loss = loss_fn(y_pred, y.cpu())
+					feat_loss = loss_fn(y_pred_feat, feat_extractor(y))
 
-					loss_arr.append(loss.data[0])
+					total_loss = feat_loss
 
-					loss.backward()
+					if config.discriminator == "classifier":
+						y_pred_imgnet_class = classifier(y_pred)
+						y_pred_class = ug2_classifier_loss(y_pred_imgnet_class.cpu(), config)
+						class_loss = loss_fn(y_pred_class, cl.cpu())
+						total_loss = feat_loss.cpu() + class_loss
+
+
+					loss_arr.append(total_loss.data[0])
+
+					total_loss.backward()
 					optimizer.step()
 
 			except KeyboardInterrupt:
@@ -132,7 +150,10 @@ def train(config):
 			print("time: ", time.time() - start, " Error: ", mean_epoch_loss)
 
 		if i%config.checkpoint == 0:
-			save_model(model, optimizer, path = config.model_path, filename = config.model_name + "_chkpt.pth")
+			if config.save_separate_chkpt:
+				save_model(model, optimizer, path = config.model_path, filename = config.model_name + "_chkpt"+str(i)+".pth")
+			else:
+				save_model(model, optimizer, path = config.model_path, filename = config.model_name + "_chkpt.pth")
 			print("saved checkpoint at epoch: ", i)
 
 		if exit_training(mean_epoch_loss, loss_history, window = config.exit_loss_window, epsilon = config.loss_epsilon):
@@ -163,10 +184,11 @@ def test_single(img, config):
 	_img = data_utils.convert_to_torch_tensor(img)
 
 	out = model(_img)
+
 	out = out.data.cpu().numpy()
 
 	if config.hist_eq:
-		out = image_utils.hist_match(out[0], img[0])
+		out = image_utils.hist_match(out[0], img)
 
 	return out
 
@@ -205,7 +227,7 @@ def ug2_classifier_loss(y_pred, config):
 	for j in range(len(config.mapping_list)):
 		mapping = data_utils.convert_to_torch_tensor(np.array(config.mapping_list[j]), from_numpy = True, cuda = False, dtype = "int64")
 		group = torch.index_select(y_pred, 1, mapping)
-		mapped_output.append(torch.sum(group))
+		mapped_output.append(torch.sum(group, dim = 1))
 
 	y_pred = torch.stack(mapped_output, dim = 1)
 

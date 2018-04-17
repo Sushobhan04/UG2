@@ -22,10 +22,10 @@ class DatasetFromFile(Dataset):
 
 		if data_format == "h5":
 			self.data, self.label = self.load_h5_data(path, data_file)
-		elif data_format == "binary":
-			self.data, self.label = self.load_binary_data(path, data_file)
 		elif data_format == "h5_bbox":
 			self.data, self.label = self.load_h5_bbox_data(path, data_file)
+		elif data_format == "h5_combined":
+			self.data, self.label, self.cls = self.load_h5_combined_data(path, data_file)
 
 	def __len__(self):
 		return len(self.data)
@@ -33,36 +33,10 @@ class DatasetFromFile(Dataset):
 	def __getitem__(self, idx):
 		if self.data_format == "h5_bbox":
 			return {"data": self.data[idx], "label": self.label[idx]}
+		elif self.data_format == "h5_combined":
+			return {"data": self.data[idx], "label": self.label[idx], "class": self.cls[idx]}
 		else:
 			return {"data": self.data[idx], "label": self.label[idx]}
-
-	def load_binary_data(self, path, data_file):
-		data_file = os.path.join(path, data_file)
-
-		d = unpickle(data_file)
-		x = d['data']
-		y = d['labels']
-	#     mean_image = d['mean']
-
-		x = x/np.float32(255)
-	#     mean_image = mean_image/np.float32(255)
-
-	# Labels are indexed from 1, shift it so that indexes start at 0
-
-		y_one_hot = np.zeros((len(y), 1000), dtype = np.float32)
-
-		for i in range(len(y)):
-			y_one_hot[i, y[i]-1] = 1.0
-		data_size = x.shape[0]
-
-	#     x -= mean_image
-
-		img_size2 = self.img_size * self.img_size
-
-		x = np.dstack((x[:, :img_size2], x[:, img_size2:2*img_size2], x[:, 2*img_size2:]))
-		x = x.reshape((x.shape[0], self.img_size, self.img_size, 3)).transpose(0, 3, 1, 2)
-		
-		return x,y_one_hot
 
 	def load_h5_data(self, path, data_file):
 
@@ -77,6 +51,29 @@ class DatasetFromFile(Dataset):
 			label = label.astype(np.float32)/255.0
 
 		return data, label
+
+	def load_h5_combined_data(self, path, data_file):
+
+		with h5py.File(os.path.join(path, data_file),'r') as curr_data:
+			data = np.array(curr_data['data'])
+			label = np.array(curr_data['label'])
+			cl = np.array(curr_data["class"])
+
+		# print np.max(data), np.max(label)
+
+		if data.dtype == np.uint8:
+			data = data.astype(np.float32)/255.0
+			label = label.astype(np.float32)/255.0
+
+		with open(os.path.join("/data/UG2_data", "imagenet_to_UG2_labels.txt"), 'r') as f:
+			mapping = json.load(f)
+
+		ug_cl = np.zeros((cl.shape[0], 48), dtype = np.float32)
+
+		for i,c in enumerate(cl):
+			ug_cl[i, mapping[c]] = 1.0 
+
+		return data, label, ug_cl
 
 	def load_h5_bbox_data(self, path, data_file):
 		with h5py.File(os.path.join(path, data_file),'r') as curr_data:
