@@ -146,10 +146,10 @@ def train(config):
 		mean_epoch_loss = np.mean(loss_arr)
 		epoch_loss_arr.append(mean_epoch_loss)
 
-		if i%config.print_step == 0:
+		if i % config.print_step == 0:
 			print("time: ", time.time() - start, " Error: ", mean_epoch_loss)
 
-		if i%config.checkpoint == 0:
+		if i % config.checkpoint == 0:
 			if config.save_separate_chkpt:
 				save_model(model, optimizer, path = config.model_path, filename = config.model_name + "_chkpt"+str(i)+".pth")
 			else:

@@ -5,7 +5,7 @@ from PIL import Image
 from scipy.signal import convolve2d
 from skimage.draw import line
 
-from LineDictionary import LineDictionary
+from .LineDictionary import LineDictionary
 
 lineLengths =[3,5,7,9]
 lineTypes = ["full", "right", "left"]
